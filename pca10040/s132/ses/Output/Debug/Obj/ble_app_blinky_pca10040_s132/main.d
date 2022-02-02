@@ -90,7 +90,7 @@ Output/Debug/Obj/ble_app_blinky_pca10040_s132/main.o: \
  ../../../../..//components/libraries/log/nrf_log_types.h \
  ../../../../..//components/libraries/sortlist/nrf_sortlist.h \
  ../../../../..//components/libraries/button/app_button.h \
- ../../../../..//components/ble/ble_services/ble_lbs/ble_lbs.h \
+ C:\Nordic_sdk\nRF5_SDK_17.1.0_ddde560\projects\ble_app_blinky\ble_LB.h \
  ../../../../..//components/ble/nrf_ble_gatt/nrf_ble_gatt.h \
  ../../../../..//components/ble/ble_services/ble_dis/ble_dis.h \
  ../../../../..//components/ble/nrf_ble_qwr/nrf_ble_qwr.h \

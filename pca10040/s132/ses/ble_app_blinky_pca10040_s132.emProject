@@ -107,7 +107,7 @@
       <file file_name="$(SDK_ROOT)/external/utf_converter/utf.c" />
     </folder>
     <folder Name="nRF_BLE_Services">
-      <file file_name="$(SDK_ROOT)/components/ble/ble_services/ble_lbs/ble_lbs.c" />
+      <file file_name="../../../ble_LB.c" />
       <file file_name="../../../../../components/ble/ble_services/ble_dis/ble_dis.c" />
     </folder>
     <folder Name="nRF_SoftDevice">

@@ -60,7 +60,7 @@
 #include "boards.h"
 #include "app_timer.h"
 #include "app_button.h"
-#include "ble_lbs.h"
+#include "ble_LB.h"
 #include "ble_dis.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"

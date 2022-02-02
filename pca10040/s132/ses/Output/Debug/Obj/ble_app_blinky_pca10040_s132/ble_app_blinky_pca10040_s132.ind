@@ -50,7 +50,7 @@
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/nrf_ble_gatt.o"
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/nrf_ble_qwr.o"
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/utf.o"
-"Output/Debug/Obj/ble_app_blinky_pca10040_s132/ble_lbs.o"
+"Output/Debug/Obj/ble_app_blinky_pca10040_s132/ble_LB.o"
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/ble_dis.o"
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/nrf_sdh.o"
 "Output/Debug/Obj/ble_app_blinky_pca10040_s132/nrf_sdh_ble.o"
