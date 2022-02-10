@@ -103,16 +103,11 @@ static void on_write(ble_LB_t * p_LB, ble_evt_t const * p_ble_evt)
 	}
 	else if(p_evt_write->handle == p_LB->Button_handles.value_handle)
 	{
-		if(p_ble_evt->evt.gatts_evt.params.write.data[0] > 0){
-                  bsp_board_led_on(1);
-                }else{
-                  bsp_board_led_off(1);
-                }
 
 	}
 	else if(p_evt_write->handle == p_LB->battery_level_handles.value_handle)
 	{
-		//TODO: battery_level
+
 	}
 }
 

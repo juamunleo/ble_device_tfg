@@ -75,6 +75,7 @@
 #define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
 #define LEDBUTTON_LED                   BSP_BOARD_LED_1                         /**< LED to be toggled with the help of the LED Button Service. */
 #define LEDBUTTON_BUTTON                BSP_BUTTON_0                            /**< Button that will trigger the notification event with the LED Button Service */
+#define BATTERY_BUTTON                  BSP_BUTTON_1
 
 #define DEVICE_NAME                     "Nordic_JM"                             /**< Name of device. Will be included in the advertising data. */
 
@@ -550,6 +551,19 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action)
             }
             break;
 
+            case BATTERY_BUTTON:
+            NRF_LOG_INFO("Send battery state change");
+            
+            err_code = ble_LB_battery_level_update(&m_LB, button_action);
+            if (err_code != NRF_SUCCESS &&
+                err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
+                err_code != NRF_ERROR_INVALID_STATE &&
+                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+            break;
+
         default:
             APP_ERROR_HANDLER(pin_no);
             break;
@@ -597,7 +611,7 @@ int main(void)
     
     
     // Start execution.
-    NRF_LOG_INFO("Blinky example started.");
+    NRF_LOG_INFO("BLE started.");
     advertising_start();
     // Enter main loop.
     for (;;)
