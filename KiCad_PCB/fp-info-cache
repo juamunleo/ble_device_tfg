@@ -1,4 +1,4 @@
-19823258403782244
+19834770456836878
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -77552,6 +77552,13 @@ rotary encoder
 0
 5
 4
+SamacSys_Parts
+NE555DR
+D (R-PDSO-G8)
+Integrated Circuit
+0
+8
+8
 Sensor
 Aosong_DHT11_5.5x12.0_P2.54mm
 Temperature and humidity module, http://akizukidenshi.com/download/ds/aosong/DHT11.pdf
@@ -84490,6 +84497,20 @@ ADAM_USB-C31-S-RA-CS2-SMT-BK-T_R
 32
 32
 componentes
+ECS320833B7KMTR
+ECS-320-8-33B-7KM-TR-1
+Crystal or Oscillator
+0
+4
+4
+componentes
+LEDC3216X110N
+
+
+0
+2
+2
+componentes
 QFN40P600X600X90-49N
 
 
@@ -84503,3 +84524,31 @@ SO-8_S
 0
 8
 8
+componentes
+SW_8-1437565-0
+
+
+0
+4
+4
+componentes
+SW_B3U-3000P
+
+
+0
+2
+2
+componentes
+XDCR_2450AT18B100E
+
+
+0
+2
+2
+componentes
+XTAL_ECS-.327-12.5-12R-TR
+
+
+0
+2
+2

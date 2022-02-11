@@ -1,0 +1,26 @@
+EESchema-LIBRARY Version 2.3
+#encoding utf-8
+#(c) SnapEDA 2016 (snapeda.com)
+#This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA) with Design Exception 1.0
+#
+# 2450AT18B100E
+#
+DEF 2450AT18B100E E 0 40 Y N 1 L N
+F0 "E" 100 200 50 H V L BNN
+F1 "2450AT18B100E" 100 100 50 H V L BNN
+F2 "XDCR_2450AT18B100E" 0 0 50 H I L BNN
+F3 "" 0 0 50 H I L BNN
+F4 "Manufacturer Recommendation" 0 0 50 H I L BNN "STANDARD"
+F5 "4.0" 0 0 50 H I L BNN "PARTREV"
+F6 "Johanson Technology" 0 0 50 H I L BNN "MANUFACTURER"
+F7 "1.4 mm" 0 0 50 H I L BNN "MAXIMUM_PACKAGE_HEIGHT"
+DRAW
+P 2 0 0 10 95 315 0 100 N
+P 2 0 0 10 0 100 -105 315 N
+P 2 0 0 10 0 315 0 100 N
+P 2 0 0 10 0 100 0 -200 N
+X ~ 1 0 -200 100 U 40 40 0 0 I 
+ENDDRAW
+ENDDEF
+#
+# End Library

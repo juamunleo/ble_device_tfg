@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP ECS-320-8-33B-7KM-TR
+D Crystals 32MHz 8pF 40 ohms -20C to 70C 7ppm
+K
+F https://componentsearchengine.com/Datasheets/1/ECS-320-8-33B-7KM-TR.pdf
+$ENDCMP
+#
+#End Doc Library
