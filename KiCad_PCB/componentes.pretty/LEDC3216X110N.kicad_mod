@@ -1,6 +1,6 @@
 (footprint "LEDC3216X110N" (version 20211014) (generator pcbnew)
   (layer "F.Cu")
-  (tedit 62065373)
+  (tedit 620A3C3F)
   (attr through_hole)
   (fp_text reference "REF**" (at -0.596718 -1.666809) (layer "F.SilkS")
     (effects (font (size 0.48058 0.48058) (thickness 0.15)))
@@ -23,8 +23,8 @@
   (fp_line (start -1.6 -0.8) (end -1.2 -0.8) (layer "F.Fab") (width 0.127) (tstamp 9838c2c6-75b1-4186-8ac3-fa6ad3b08f79))
   (fp_line (start 1.6 0.8) (end -1.2 0.8) (layer "F.Fab") (width 0.127) (tstamp ada4c2de-397b-45f8-9e10-09edfa3692cb))
   (pad "" np_thru_hole circle (at 0 0) (size 2 2) (drill 2) (layers *.Cu *.Mask) (tstamp b2a56f69-35c4-4760-9c0e-fc6ac543e9a0))
-  (pad "1" smd rect (at -1.795 0) (size 1.5 1.59) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp a0d2b153-d151-4cee-a7a0-66734582c2a6))
-  (pad "2" smd rect (at 1.795 0) (size 1.5 1.59) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 655cbf4a-118f-464a-a909-dc4b6acbb6f0))
+  (pad "A" smd rect (at -1.795 0) (size 1.5 1.59) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp a0d2b153-d151-4cee-a7a0-66734582c2a6))
+  (pad "C" smd rect (at 1.795 0) (size 1.5 1.59) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp 655cbf4a-118f-464a-a909-dc4b6acbb6f0))
   (model "${KIPRJMOD}/simbolos_huellas_externos/597-3111-407F/597-3111-407F.step"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
