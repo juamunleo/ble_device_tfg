@@ -74,6 +74,8 @@
 #define ADVERTISING_LED                 BSP_BOARD_LED_2                         /**< Is on when device is advertising. */
 #define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
 #define LEDBUTTON_LED                   BSP_BOARD_LED_1                         /**< LED to be toggled with the help of the LED Button Service. */
+#define SYSTEMOFF_LED                   BSP_BOARD_LED_0
+
 #define LEDBUTTON_BUTTON                BSP_BUTTON_0                            /**< Button that will trigger the notification event with the LED Button Service */
 #define BATTERY_BUTTON                  BSP_BUTTON_1
 
@@ -83,7 +85,7 @@
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define APP_ADV_INTERVAL                64                                      /**< The advertising interval (in units of 0.625 ms; this value corresponds to 40 ms). */
-#define APP_ADV_DURATION                BLE_GAP_ADV_TIMEOUT_GENERAL_UNLIMITED   /**< The advertising time-out (in units of seconds). When set to 0, we will never time out. */
+#define APP_ADV_DURATION                1000                                   /**< The advertising time-out (in units of seconds). When set to 0, we will never time out. */
 
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.5 seconds). */
@@ -101,7 +103,7 @@
 
 #define MANUFACTURER_NAME               "JM"
 
-#define NRF_BL_APP_CRC_CHECK_SKIPPED_ON_SYSTEMOFF_RESET 1
+//#define NRF_BL_APP_CRC_CHECK_SKIPPED_ON_SYSTEMOFF_RESET 1
 
 #define SYSTEM_FROM_STARTUP 0x00000000 //Primer encendido
 #define SYSTEM_FROM_RESETBTN 0x00000001 //Reset por botón
@@ -409,21 +411,20 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected");
-            bsp_board_led_on(CONNECTED_LED);
             bsp_board_led_off(ADVERTISING_LED);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
             err_code = app_button_enable();
             APP_ERROR_CHECK(err_code);
-            if(reset_reason == SYSTEM_FROM_RESETBTN){
-              NRF_LOG_INFO("Reset desde botón");
-              bsp_board_led_on(ADVERTISING_LED);
-              NRF_POWER->SYSTEMOFF = 1;
+            if(reset_reason != SYSTEM_FROM_OFF){
+              //NRF_LOG_INFO("Reset desde botón");
+              bsp_board_led_on(SYSTEMOFF_LED);
+              nrf_power_system_off();
             }else if(reset_reason == SYSTEM_FROM_OFF){
-              NRF_LOG_INFO("Reset desde System OFF");
+              //NRF_LOG_INFO("Reset desde System OFF");
+              bsp_board_led_on(CONNECTED_LED);
               err_code = ble_LB_button_notify(&m_LB, 1);
-              //err_code = ble_LB_button_notify(&m_LB, 0);
               if (err_code != NRF_SUCCESS &&
                   err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
                   err_code != NRF_ERROR_INVALID_STATE &&
@@ -433,6 +434,11 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
               }
             }
             
+            break;
+
+        case BLE_GAP_EVT_ADV_SET_TERMINATED:
+            bsp_board_led_off(ADVERTISING_LED);
+            nrf_power_system_off();
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
@@ -577,7 +583,7 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action)
             case BATTERY_BUTTON:
             NRF_LOG_INFO("Send battery state change");
             
-            err_code = ble_LB_battery_level_update(&m_LB, button_action);
+            /*err_code = ble_LB_battery_level_update(&m_LB, button_action);
             if (err_code != NRF_SUCCESS &&
                 err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
                 err_code != NRF_ERROR_INVALID_STATE &&
@@ -585,7 +591,7 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action)
             {
                 APP_ERROR_CHECK(err_code);
             }
-            break;
+            break;*/
 
         default:
             APP_ERROR_HANDLER(pin_no);

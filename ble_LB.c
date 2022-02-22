@@ -66,8 +66,6 @@ NRF_LOG_MODULE_REGISTER();
 static void on_connect(ble_LB_t * p_LB, ble_evt_t const * p_ble_evt)
 {
     p_LB->conn_handle = p_ble_evt->evt.gatts_evt.conn_handle;
-
-    
 }
 
 /**@brief Function for handling the Disconnect event.

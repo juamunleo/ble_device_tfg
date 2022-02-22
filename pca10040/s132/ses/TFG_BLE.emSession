@@ -60,10 +60,12 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="613" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="596" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="29" y="49" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../ble_LB.c" selected="0" top="37" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="2" y="147" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="123" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="61" y="67" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../ble_LB.c" selected="0" top="31" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="34" y="17" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/projects/TFG_BLE/ble_LB.c" useBinaryEdit="0" left="0" path="../../../ble_LB.h" selected="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="18" y="834" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/projects/TFG_BLE/main.c" useBinaryEdit="0" left="0" path="../../../../../modules/nrfx/mdk/nrf52.h" selected="0" top="812" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="107" y="6618" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../config/sdk_config.h" selected="0" top="201" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="46" y="1927" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/projects/TFG_BLE/main.c" useBinaryEdit="0" left="0" path="../../../../../components/softdevice/s132/headers/ble_gap.h" selected="0" top="1898" codecName="Default"/>
  </Files>
  <ARMCrossStudioWindow activeProject="TFG_BLE" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3711"/>
 </session>
