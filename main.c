@@ -101,7 +101,13 @@
 
 #define MANUFACTURER_NAME               "JM"
 
-//BLE_LBS_DEF(m_lbs);                                                             /**< LED Button Service instance. */
+#define NRF_BL_APP_CRC_CHECK_SKIPPED_ON_SYSTEMOFF_RESET 1
+
+#define SYSTEM_FROM_STARTUP 0x00000000 //Primer encendido
+#define SYSTEM_FROM_RESETBTN 0x00000001 //Reset por botón
+#define SYSTEM_FROM_OFF 0x00010000 //Reset desde System OFF
+
+//BLE_LBS_DEF(m_lbs);                                                           /**< LED Button Service instance. */
 BLE_LB_DEF(m_LB);
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
@@ -112,7 +118,7 @@ static uint8_t m_adv_handle = BLE_GAP_ADV_SET_HANDLE_NOT_SET;                   
 static uint8_t m_enc_advdata[BLE_GAP_ADV_SET_DATA_SIZE_MAX];                    /**< Buffer for storing an encoded advertising set. */
 static uint8_t m_enc_scan_response_data[BLE_GAP_ADV_SET_DATA_SIZE_MAX];         /**< Buffer for storing an encoded scan data. */
 
-
+uint32_t reset_reason;
 
 static ble_uuid_t m_adv_uuids[] = /** < Universally unique service identifiers. */
 {
@@ -410,6 +416,23 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             APP_ERROR_CHECK(err_code);
             err_code = app_button_enable();
             APP_ERROR_CHECK(err_code);
+            if(reset_reason == SYSTEM_FROM_RESETBTN){
+              NRF_LOG_INFO("Reset desde botón");
+              bsp_board_led_on(ADVERTISING_LED);
+              NRF_POWER->SYSTEMOFF = 1;
+            }else if(reset_reason == SYSTEM_FROM_OFF){
+              NRF_LOG_INFO("Reset desde System OFF");
+              err_code = ble_LB_button_notify(&m_LB, 1);
+              //err_code = ble_LB_button_notify(&m_LB, 0);
+              if (err_code != NRF_SUCCESS &&
+                  err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
+                  err_code != NRF_ERROR_INVALID_STATE &&
+                  err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+              {
+                  APP_ERROR_CHECK(err_code);
+              }
+            }
+            
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
@@ -585,6 +608,10 @@ static void buttons_init(void)
 
     err_code = app_button_init(buttons, ARRAY_SIZE(buttons),
                                BUTTON_DETECTION_DELAY);
+
+    //Hacemos que el botón 2 despierte al dispositivo en System Off
+    nrf_gpio_cfg_sense_input(14, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+
     APP_ERROR_CHECK(err_code);
 }
 
@@ -595,6 +622,8 @@ static void buttons_init(void)
  */
 int main(void)
 {
+    reset_reason = NRF_POWER->RESETREAS;
+    NRF_POWER->RESETREAS = 0xFFFFFFFF;
     // Initialize.
     bsp_board_init(BSP_INIT_LEDS);
     bsp_board_init(BSP_INIT_BUTTONS);
@@ -609,7 +638,8 @@ int main(void)
     advertising_init();
     conn_params_init();
     
-    
+
+
     // Start execution.
     NRF_LOG_INFO("BLE started.");
     advertising_start();
