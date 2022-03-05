@@ -1,4 +1,4 @@
-19834771059930656
+19838074242771864
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -84497,6 +84497,13 @@ ADAM_USB-C31-S-RA-CS2-SMT-BK-T_R
 32
 32
 componentes
+BAT_BAT-HLD-001-THM-TR
+
+
+0
+5
+5
+componentes
 ECS320833B7KMTR
 ECS-320-8-33B-7KM-TR-1
 Crystal or Oscillator
@@ -84510,6 +84517,13 @@ LEDC3216X110N
 0
 2
 2
+componentes
+MOLEX_530480450
+
+
+0
+4
+4
 componentes
 QFN40P600X600X90-49N
 
