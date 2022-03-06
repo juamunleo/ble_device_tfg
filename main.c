@@ -65,21 +65,19 @@
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
 #include "nrf_pwr_mgmt.h"
-
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-
+#define SYSTEMOFF_LED                   BSP_BOARD_LED_0
+#define LEDBUTTON_LED                   BSP_BOARD_LED_1                         /**< LED to be toggled with the help of the LED Button Service. */
 #define ADVERTISING_LED                 BSP_BOARD_LED_2                         /**< Is on when device is advertising. */
 #define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
-#define LEDBUTTON_LED                   BSP_BOARD_LED_1                         /**< LED to be toggled with the help of the LED Button Service. */
-#define SYSTEMOFF_LED                   BSP_BOARD_LED_0
 
-#define LEDBUTTON_BUTTON                BSP_BUTTON_0                            /**< Button that will trigger the notification event with the LED Button Service */
-#define BATTERY_BUTTON                  BSP_BUTTON_1
+#define BUTTON                          BSP_BUTTON_0                            /**< Button that will trigger the notification event with the LED Button Service */
 
 #define DEVICE_NAME                     "Nordic_JM"                             /**< Name of device. Will be included in the advertising data. */
+#define MANUFACTURER_NAME               "JM"
 
 #define APP_BLE_OBSERVER_PRIO           3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
@@ -101,15 +99,12 @@
 
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
-#define MANUFACTURER_NAME               "JM"
-
-//#define NRF_BL_APP_CRC_CHECK_SKIPPED_ON_SYSTEMOFF_RESET 1
-
 #define SYSTEM_FROM_STARTUP 0x00000000 //Primer encendido
 #define SYSTEM_FROM_RESETBTN 0x00000001 //Reset por botón
 #define SYSTEM_FROM_OFF 0x00010000 //Reset desde System OFF
 
-//BLE_LBS_DEF(m_lbs);                                                           /**< LED Button Service instance. */
+#define SHOW_CONSOLE_OUTPUT //Activa la información del programa por la consola
+
 BLE_LB_DEF(m_LB);
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
@@ -144,6 +139,284 @@ static ble_gap_adv_data_t m_adv_data =
     }
 };
 
+//Declaración de las funciones
+int main(void);
+static void buttons_init(void);
+static void button_event_handler(uint8_t, uint8_t);
+void leds_init(void);
+void assert_nrf_callback(uint16_t, const uint8_t *);
+void timers_init(void);
+static void gap_params_init(void);
+static void gatt_init(void);
+static void advertising_init(void);
+static void nrf_qwr_error_handler(uint32_t);
+void services_init(void);
+static void on_conn_params_evt(ble_conn_params_evt_t *);
+static void conn_params_error_handler(uint32_t);
+static void conn_params_init(void);
+static void advertising_start(void);
+static void ble_evt_handler(ble_evt_t const *, void *);
+static void ble_stack_init(void);
+static void log_init(void);
+static void power_management_init(void);
+static void idle_state_handle(void);
+//Fin de las declaraciones
+
+/**@brief Función principal (el programa comienza aquí)
+ */
+int main(void){
+    
+    reset_reason = NRF_POWER->RESETREAS; //Guardamos el estado del registro RESETREAS para saber el motivo del reset
+    NRF_POWER->RESETREAS = 0xFFFFFFFF; //Reiniciamos el valor del registro RESETREAS
+
+    #ifdef SHOW_CONSOLE_OUTPUT
+      if(reset_reason != SYSTEM_FROM_OFF){
+        NRF_LOG_INFO("Reset desde boton");
+      }else if(reset_reason == SYSTEM_FROM_OFF){
+        NRF_LOG_INFO("Reset desde System OFF");
+      }
+    #endif
+
+    //Inicialización de componentes
+    log_init();
+    buttons_init();
+    leds_init();
+    timers_init();
+    power_management_init();
+    ble_stack_init();
+    gap_params_init();
+    gatt_init();
+    services_init();
+    advertising_init();
+    conn_params_init();
+    //Fin de inicialización
+
+    //Una vez finalizada la inicialización de BLE, se inicia el advertising
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("BLE started.");
+    #endif
+    advertising_start();
+
+    //Entra en el bucle principal
+    for (;;){
+        idle_state_handle(); //Se queda en IDLE hasta que ocurra un evento
+    }
+}
+
+/**@brief Función que inicializa los servicios BLE usados en el programa
+ *
+ * @details Se inicializa la información del dispositivo y los servicios para LED, botón y batería
+ */
+void services_init(void){
+	ret_code_t         err_code;
+	nrf_ble_qwr_init_t qwr_init = {0};
+	ble_dis_init_t     dis_init;
+	ble_LB_init_t     LB_init;
+
+	// Initialize Queued Write Module.
+	qwr_init.error_handler = nrf_qwr_error_handler;
+	err_code = nrf_ble_qwr_init( & m_qwr, & qwr_init);
+	APP_ERROR_CHECK(err_code);
+
+	// Initialize Device Information Service.
+	memset(&dis_init, 0, sizeof(dis_init));
+	ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, (char *)MANUFACTURER_NAME);
+	dis_init.dis_char_rd_sec = SEC_OPEN;
+	err_code = ble_dis_init(&dis_init);
+	APP_ERROR_CHECK(err_code);
+
+	memset( & LB_init, 0, sizeof(LB_init));
+	LB_init.evt_handler = NULL;
+	LB_init.default_LED = 0;
+	LB_init.LED_rd_sec = SEC_OPEN;
+	LB_init.LED_cccd_wr_sec = SEC_OPEN;
+	LB_init.LED_wr_sec = SEC_OPEN;
+
+	LB_init.default_Button = 0;
+	LB_init.Button_rd_sec = SEC_OPEN;
+
+	LB_init.default_battery_level = 0.0;
+	LB_init.battery_level_rd_sec = SEC_OPEN;
+	LB_init.battery_level_cccd_wr_sec = SEC_OPEN;
+	LB_init.battery_level_wr_sec = SEC_OPEN;
+
+	err_code = ble_LB_init( & m_LB, & LB_init);
+	APP_ERROR_CHECK(err_code);
+}
+
+
+/**@brief Función de inicialización de LEDS.
+ */
+void leds_init(void){
+    bsp_board_init(BSP_INIT_LEDS);
+}
+
+
+/**@brief Función para inicializar el manejador del botón
+ */
+static void buttons_init(void){
+    bsp_board_init(BSP_INIT_BUTTONS);
+    ret_code_t err_code;
+
+    //The array must be static because a pointer to it will be saved in the button handler module.
+    static app_button_cfg_t buttons[] =
+    {
+        {BUTTON, false, BUTTON_PULL, button_event_handler}
+    };
+
+    err_code = app_button_init(buttons, ARRAY_SIZE(buttons),
+                               BUTTON_DETECTION_DELAY);
+
+    //Hacemos que el botón 2 despierte al dispositivo en System Off
+    nrf_gpio_cfg_sense_input(14, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+
+    APP_ERROR_CHECK(err_code);
+}
+
+/**@brief Function for handling events from the button handler module.
+ *
+ * @param[in] pin_no        The pin that the event applies to.
+ * @param[in] button_action The button action (press/release).
+ */
+static void button_event_handler(uint8_t pin_no, uint8_t button_action){
+    ret_code_t err_code;
+
+    switch (pin_no)
+    {
+        case BUTTON:
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_INFO("Send button state change:%d", button_action);
+            #endif
+            err_code = ble_LB_button_notify(&m_LB, button_action);
+            if (err_code != NRF_SUCCESS &&
+                err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
+                err_code != NRF_ERROR_INVALID_STATE &&
+                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+            break;
+
+        default:
+            APP_ERROR_HANDLER(pin_no);
+            break;
+    }
+}
+
+/**@brief Function for handling BLE events.
+ *
+ * @param[in]   p_ble_evt   Bluetooth stack event.
+ * @param[in]   p_context   Unused.
+ */
+static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context){
+    ble_LB_on_ble_evt(p_ble_evt, p_context);
+    ret_code_t err_code;
+
+    switch (p_ble_evt->header.evt_id)
+    {
+        case BLE_GAP_EVT_CONNECTED:
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_INFO("Connected");
+            #endif
+            bsp_board_led_off(ADVERTISING_LED);
+            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
+            APP_ERROR_CHECK(err_code);
+            err_code = app_button_enable();
+            APP_ERROR_CHECK(err_code);
+            if(reset_reason != SYSTEM_FROM_OFF){
+              bsp_board_led_on(SYSTEMOFF_LED);
+              nrf_power_system_off();
+            }else if(reset_reason == SYSTEM_FROM_OFF){
+              bsp_board_led_on(CONNECTED_LED);
+              err_code = ble_LB_button_notify(&m_LB, 1);
+              if (err_code != NRF_SUCCESS &&
+                  err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
+                  err_code != NRF_ERROR_INVALID_STATE &&
+                  err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
+              {
+                  APP_ERROR_CHECK(err_code);
+              }
+            }
+            
+            break;
+
+        case BLE_GAP_EVT_ADV_SET_TERMINATED:
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_INFO("Advertising ended");
+            #endif
+            bsp_board_led_off(ADVERTISING_LED);
+            nrf_power_system_off();
+            break;
+
+        case BLE_GAP_EVT_DISCONNECTED:
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_INFO("Disconnected");
+            #endif
+            bsp_board_led_off(CONNECTED_LED);
+            m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            err_code = app_button_disable();
+            APP_ERROR_CHECK(err_code);
+            advertising_start();
+            break;
+
+        case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+            // Pairing not supported
+            err_code = sd_ble_gap_sec_params_reply(m_conn_handle,
+                                                   BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP,
+                                                   NULL,
+                                                   NULL);
+            APP_ERROR_CHECK(err_code);
+            break;
+
+        case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
+        {
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_DEBUG("PHY update request.");
+            #endif
+            ble_gap_phys_t const phys =
+            {
+                .rx_phys = BLE_GAP_PHY_AUTO,
+                .tx_phys = BLE_GAP_PHY_AUTO,
+            };
+            err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
+            APP_ERROR_CHECK(err_code);
+        } break;
+
+        case BLE_GATTS_EVT_SYS_ATTR_MISSING:
+            // No system attributes have been stored.
+            err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
+            APP_ERROR_CHECK(err_code);
+            break;
+
+        case BLE_GATTC_EVT_TIMEOUT:
+            // Disconnect on GATT Client timeout event.
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_DEBUG("GATT Client Timeout.");
+            #endif
+            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
+                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            APP_ERROR_CHECK(err_code);
+            break;
+
+        case BLE_GATTS_EVT_TIMEOUT:
+            // Disconnect on GATT Server timeout event.
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_DEBUG("GATT Server Timeout.");
+            #endif
+            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
+                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            APP_ERROR_CHECK(err_code);
+            break;
+
+        default:
+            // No implementation needed.
+            break;
+    }
+}
+
+//--------------------------Funciones necesarias del SDK para que BLE funcione--------------------------
+
 /**@brief Function for assert macro callback.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -155,41 +428,27 @@ static ble_gap_adv_data_t m_adv_data =
  * @param[in] line_num    Line number of the failing ASSERT call.
  * @param[in] p_file_name File name of the failing ASSERT call.
  */
-void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
-{
+void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name){
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
-
-
-/**@brief Function for the LEDs initialization.
- *
- * @details Initializes all LEDs used by the application.
- */
-static void leds_init(void)
-{
-    bsp_board_init(BSP_INIT_LEDS);
-}
-
 
 /**@brief Function for the Timer initialization.
  *
  * @details Initializes the timer module.
  */
-static void timers_init(void)
+void timers_init(void)
 {
     // Initialize timer module, making it use the scheduler
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 }
 
-
 /**@brief Function for the GAP initialization.
  *
  * @details This function sets up all the necessary GAP (Generic Access Profile) parameters of the
  *          device including the device name, appearance, and the preferred connection parameters.
  */
-static void gap_params_init(void)
-{
+static void gap_params_init(void){
     ret_code_t              err_code;
     ble_gap_conn_params_t   gap_conn_params;
     ble_gap_conn_sec_mode_t sec_mode;
@@ -215,8 +474,7 @@ static void gap_params_init(void)
 
 /**@brief Function for initializing the GATT module.
  */
-static void gatt_init(void)
-{
+static void gatt_init(void){
     ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
     APP_ERROR_CHECK(err_code);
 }
@@ -227,8 +485,7 @@ static void gatt_init(void)
  * @details Encodes the required advertising data and passes it to the stack.
  *          Also builds a structure to be passed to the stack when starting advertising.
  */
-static void advertising_init(void)
-{
+static void advertising_init(void){
     ret_code_t    err_code;
     ble_advdata_t advdata;
     ble_advdata_t srdata;
@@ -277,56 +534,9 @@ static void advertising_init(void)
  *
  * @param[in]   nrf_error   Error code containing information about what went wrong.
  */
-static void nrf_qwr_error_handler(uint32_t nrf_error)
-{
+static void nrf_qwr_error_handler(uint32_t nrf_error){
     APP_ERROR_HANDLER(nrf_error);
 }
-
-
-/**@brief Function for initializing services that will be used by the application.
- *
- * @details Initialize the Heart Rate, Battery and Device Information services.
- */
-void services_init(void)
-{
-	ret_code_t         err_code;
-	nrf_ble_qwr_init_t qwr_init = {0};
-	ble_dis_init_t     dis_init;
-	ble_LB_init_t     LB_init;
-
-	// Initialize Queued Write Module.
-	qwr_init.error_handler = nrf_qwr_error_handler;
-	err_code = nrf_ble_qwr_init( & m_qwr, & qwr_init);
-	APP_ERROR_CHECK(err_code);
-
-	// Initialize Device Information Service.
-	memset(&dis_init, 0, sizeof(dis_init));
-	ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, (char *)MANUFACTURER_NAME);
-	dis_init.dis_char_rd_sec = SEC_OPEN;
-	err_code = ble_dis_init(&dis_init);
-	APP_ERROR_CHECK(err_code);
-
-	memset( & LB_init, 0, sizeof(LB_init));
-	LB_init.evt_handler = NULL;
-	//TODO Set default variable values.
-	LB_init.default_LED = 0;
-	LB_init.LED_rd_sec = SEC_OPEN;
-	LB_init.LED_cccd_wr_sec = SEC_OPEN;
-	LB_init.LED_wr_sec = SEC_OPEN;
-	//TODO Set default variable values.
-	LB_init.default_Button = 0;
-	LB_init.Button_rd_sec = SEC_OPEN;
-	//TODO Set default variable values.
-	LB_init.default_battery_level = 0.0;
-	LB_init.battery_level_rd_sec = SEC_OPEN;
-	LB_init.battery_level_cccd_wr_sec = SEC_OPEN;
-	LB_init.battery_level_wr_sec = SEC_OPEN;
-	err_code = ble_LB_init( & m_LB, & LB_init);
-	APP_ERROR_CHECK(err_code);
-
-}
-
-
 
 /**@brief Function for handling the Connection Parameters Module.
  *
@@ -339,8 +549,7 @@ void services_init(void)
  *
  * @param[in] p_evt  Event received from the Connection Parameters Module.
  */
-static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
-{
+static void on_conn_params_evt(ble_conn_params_evt_t * p_evt){
     ret_code_t err_code;
 
     if (p_evt->evt_type == BLE_CONN_PARAMS_EVT_FAILED)
@@ -350,21 +559,18 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
     }
 }
 
-
 /**@brief Function for handling a Connection Parameters error.
  *
  * @param[in] nrf_error  Error code containing information about what went wrong.
  */
-static void conn_params_error_handler(uint32_t nrf_error)
-{
+static void conn_params_error_handler(uint32_t nrf_error){
     APP_ERROR_HANDLER(nrf_error);
 }
 
 
 /**@brief Function for initializing the Connection Parameters module.
  */
-static void conn_params_init(void)
-{
+static void conn_params_init(void){
     ret_code_t             err_code;
     ble_conn_params_init_t cp_init;
 
@@ -383,11 +589,9 @@ static void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
 /**@brief Function for starting advertising.
  */
-static void advertising_start(void)
-{
+static void advertising_start(void){
     ret_code_t           err_code;
 
     err_code = sd_ble_gap_adv_start(m_adv_handle, APP_BLE_CONN_CFG_TAG);
@@ -397,115 +601,13 @@ static void advertising_start(void)
 }
 
 
-/**@brief Function for handling BLE events.
- *
- * @param[in]   p_ble_evt   Bluetooth stack event.
- * @param[in]   p_context   Unused.
- */
-static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
-{
-    ble_LB_on_ble_evt(p_ble_evt, p_context);
-    ret_code_t err_code;
-
-    switch (p_ble_evt->header.evt_id)
-    {
-        case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Connected");
-            bsp_board_led_off(ADVERTISING_LED);
-            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
-            APP_ERROR_CHECK(err_code);
-            err_code = app_button_enable();
-            APP_ERROR_CHECK(err_code);
-            if(reset_reason != SYSTEM_FROM_OFF){
-              //NRF_LOG_INFO("Reset desde botón");
-              bsp_board_led_on(SYSTEMOFF_LED);
-              nrf_power_system_off();
-            }else if(reset_reason == SYSTEM_FROM_OFF){
-              //NRF_LOG_INFO("Reset desde System OFF");
-              bsp_board_led_on(CONNECTED_LED);
-              err_code = ble_LB_button_notify(&m_LB, 1);
-              if (err_code != NRF_SUCCESS &&
-                  err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
-                  err_code != NRF_ERROR_INVALID_STATE &&
-                  err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-              {
-                  APP_ERROR_CHECK(err_code);
-              }
-            }
-            
-            break;
-
-        case BLE_GAP_EVT_ADV_SET_TERMINATED:
-            bsp_board_led_off(ADVERTISING_LED);
-            nrf_power_system_off();
-            break;
-
-        case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected");
-            bsp_board_led_off(CONNECTED_LED);
-            m_conn_handle = BLE_CONN_HANDLE_INVALID;
-            err_code = app_button_disable();
-            APP_ERROR_CHECK(err_code);
-            advertising_start();
-            break;
-
-        case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
-            // Pairing not supported
-            err_code = sd_ble_gap_sec_params_reply(m_conn_handle,
-                                                   BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP,
-                                                   NULL,
-                                                   NULL);
-            APP_ERROR_CHECK(err_code);
-            break;
-
-        case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
-        {
-            NRF_LOG_DEBUG("PHY update request.");
-            ble_gap_phys_t const phys =
-            {
-                .rx_phys = BLE_GAP_PHY_AUTO,
-                .tx_phys = BLE_GAP_PHY_AUTO,
-            };
-            err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
-            APP_ERROR_CHECK(err_code);
-        } break;
-
-        case BLE_GATTS_EVT_SYS_ATTR_MISSING:
-            // No system attributes have been stored.
-            err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
-            APP_ERROR_CHECK(err_code);
-            break;
-
-        case BLE_GATTC_EVT_TIMEOUT:
-            // Disconnect on GATT Client timeout event.
-            NRF_LOG_DEBUG("GATT Client Timeout.");
-            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
-            break;
-
-        case BLE_GATTS_EVT_TIMEOUT:
-            // Disconnect on GATT Server timeout event.
-            NRF_LOG_DEBUG("GATT Server Timeout.");
-            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
-            break;
-
-        default:
-            // No implementation needed.
-            break;
-    }
-}
 
 
 /**@brief Function for initializing the BLE stack.
  *
  * @details Initializes the SoftDevice and the BLE event interrupt.
  */
-static void ble_stack_init(void)
-{
+static void ble_stack_init(void){
     ret_code_t err_code;
 
     err_code = nrf_sdh_enable_request();
@@ -526,8 +628,7 @@ static void ble_stack_init(void)
 }
 
 
-static void log_init(void)
-{
+static void log_init(void){
     ret_code_t err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
 
@@ -537,8 +638,7 @@ static void log_init(void)
 
 /**@brief Function for initializing power management.
  */
-static void power_management_init(void)
-{
+static void power_management_init(void){
     ret_code_t err_code;
     err_code = nrf_pwr_mgmt_init();
     APP_ERROR_CHECK(err_code);
@@ -549,110 +649,10 @@ static void power_management_init(void)
  *
  * @details If there is no pending log operation, then sleep until next the next event occurs.
  */
-static void idle_state_handle(void)
-{
+static void idle_state_handle(void){
     if (NRF_LOG_PROCESS() == false)
     {
         nrf_pwr_mgmt_run();
-    }
-}
-
-/**@brief Function for handling events from the button handler module.
- *
- * @param[in] pin_no        The pin that the event applies to.
- * @param[in] button_action The button action (press/release).
- */
-static void button_event_handler(uint8_t pin_no, uint8_t button_action)
-{
-    ret_code_t err_code;
-
-    switch (pin_no)
-    {
-        case LEDBUTTON_BUTTON:
-            NRF_LOG_INFO("Send button state change");
-            err_code = ble_LB_button_notify(&m_LB, button_action);
-            if (err_code != NRF_SUCCESS &&
-                err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
-                err_code != NRF_ERROR_INVALID_STATE &&
-                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-            break;
-
-            case BATTERY_BUTTON:
-            NRF_LOG_INFO("Send battery state change");
-            
-            /*err_code = ble_LB_battery_level_update(&m_LB, button_action);
-            if (err_code != NRF_SUCCESS &&
-                err_code != BLE_ERROR_INVALID_CONN_HANDLE &&
-                err_code != NRF_ERROR_INVALID_STATE &&
-                err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-            break;*/
-
-        default:
-            APP_ERROR_HANDLER(pin_no);
-            break;
-    }
-}
-
-
-/**@brief Function for initializing the button handler module.
- */
-static void buttons_init(void)
-{
-    ret_code_t err_code;
-
-    //The array must be static because a pointer to it will be saved in the button handler module.
-    static app_button_cfg_t buttons[] =
-    {
-        {LEDBUTTON_BUTTON, false, BUTTON_PULL, button_event_handler}
-    };
-
-    err_code = app_button_init(buttons, ARRAY_SIZE(buttons),
-                               BUTTON_DETECTION_DELAY);
-
-    //Hacemos que el botón 2 despierte al dispositivo en System Off
-    nrf_gpio_cfg_sense_input(14, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
-
-    APP_ERROR_CHECK(err_code);
-}
-
-
-
-
-/**@brief Function for application main entry.
- */
-int main(void)
-{
-    reset_reason = NRF_POWER->RESETREAS;
-    NRF_POWER->RESETREAS = 0xFFFFFFFF;
-    // Initialize.
-    bsp_board_init(BSP_INIT_LEDS);
-    bsp_board_init(BSP_INIT_BUTTONS);
-    log_init();
-    buttons_init();
-    timers_init();
-    power_management_init();
-    ble_stack_init();
-    gap_params_init();
-    gatt_init();
-    services_init();
-    advertising_init();
-    conn_params_init();
-    
-
-
-    // Start execution.
-    NRF_LOG_INFO("BLE started.");
-    advertising_start();
-    // Enter main loop.
-    for (;;)
-    {
-        idle_state_handle();
     }
 }
 

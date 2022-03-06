@@ -46,6 +46,8 @@
 #include "ble_conn_state.h"
 #include "boards.h"
 
+#define LEDBUTTON_LED                   BSP_BOARD_LED_1
+
 #define NRF_LOG_MODULE_NAME ble_LB
 #if BLE_LB_CONFIG_LOG_ENABLED
 #define NRF_LOG_LEVEL       BLE_LB_CONFIG_LOG_LEVEL
@@ -96,9 +98,9 @@ static void on_write(ble_LB_t * p_LB, ble_evt_t const * p_ble_evt)
 	if(p_evt_write->handle == p_LB->LED_handles.value_handle)
 	{
                 if(p_ble_evt->evt.gatts_evt.params.write.data[0] > 0){
-                  bsp_board_led_on(0);
+                  bsp_board_led_on(LEDBUTTON_LED);
                 }else{
-                  bsp_board_led_off(0);
+                  bsp_board_led_off(LEDBUTTON_LED);
                 }
 	}
 	else if(p_evt_write->handle == p_LB->Button_handles.value_handle)
@@ -156,14 +158,12 @@ uint32_t ble_LB_LED_update(ble_LB_t * p_LB, uint8_t LED)
 
     gatts_value.len     = sizeof(uint8_t);
     gatts_value.offset  = 0;
-    //TODO Check that datatype is consistent.
     gatts_value.p_value = &LED;
 
     // Update database.
     err_code = sd_ble_gatts_value_set(p_LB->conn_handle,p_LB->LED_handles.value_handle,&gatts_value);
     if (err_code == NRF_SUCCESS)
     {
-        // TODO Store value in the p_LB->LED (May use '=', maybe & or * depending on data).
         memcpy(&p_LB->LED, &LED, sizeof(uint8_t));
     }
     else
@@ -190,14 +190,12 @@ uint32_t ble_LB_Button_update(ble_LB_t * p_LB, uint8_t Button)
 
     gatts_value.len     = sizeof(uint8_t);
     gatts_value.offset  = 0;
-    //TODO Check that datatype is consistent.
     gatts_value.p_value = &Button;
 
     // Update database.
     err_code = sd_ble_gatts_value_set(p_LB->conn_handle,p_LB->Button_handles.value_handle,&gatts_value);
     if (err_code == NRF_SUCCESS)
     {
-        // TODO Store value in the p_LB->Button (May use '=', maybe & or * depending on data).
         memcpy(&p_LB->Button, &Button, sizeof(uint8_t));
     }
     else
@@ -222,7 +220,7 @@ uint32_t ble_LB_button_notify(ble_LB_t * p_LB, uint8_t button_state)
     return sd_ble_gatts_hvx(p_LB->conn_handle, &params);
 }
 
-uint32_t ble_LB_battery_level_update(ble_LB_t * p_LB, float battery_level)
+uint32_t ble_LB_battery_level_update(ble_LB_t * p_LB, uint8_t battery_level)
 {
     if (p_LB == NULL)
     {
@@ -235,17 +233,17 @@ uint32_t ble_LB_battery_level_update(ble_LB_t * p_LB, float battery_level)
     // Initialize value struct.
     memset(&gatts_value, 0, sizeof(gatts_value));
 
-    gatts_value.len     = sizeof(float);
+    gatts_value.len     = sizeof(uint8_t);
     gatts_value.offset  = 0;
     //TODO Check that datatype is consistent.
-    gatts_value.p_value = (uint8_t) battery_level;
+    gatts_value.p_value = &battery_level;
 
     // Update database.
     err_code = sd_ble_gatts_value_set(p_LB->conn_handle,p_LB->battery_level_handles.value_handle,&gatts_value);
     if (err_code == NRF_SUCCESS)
     {
         // TODO Store value in the p_LB->battery_level (May use '=', maybe & or * depending on data).
-        memcpy(&p_LB->battery_level, &battery_level, sizeof(float));
+        memcpy(&p_LB->battery_level, &battery_level, sizeof(uint8_t));
     }
     else
     {
@@ -269,7 +267,7 @@ static ret_code_t battery_level_char_add(ble_LB_t * p_LB, const ble_LB_init_t * 
     ret_code_t             err_code;
     ble_add_char_params_t  add_char_params;
     ble_add_descr_params_t add_descr_params;
-    float                  default_battery_level;
+    uint8_t                default_battery_level;
     uint8_t                init_len;
     uint8_t                encoded_report_ref[BLE_SRV_ENCODED_REPORT_REF_LEN];
 
@@ -278,8 +276,8 @@ static ret_code_t battery_level_char_add(ble_LB_t * p_LB, const ble_LB_init_t * 
 
     memset(&add_char_params, 0, sizeof(add_char_params));
     add_char_params.uuid              = BLE_UUID_BATTERY_LEVEL;
-    add_char_params.max_len           = sizeof(float);
-    add_char_params.init_len          = sizeof(float);
+    add_char_params.max_len           = sizeof(uint8_t);
+    add_char_params.init_len          = sizeof(uint8_t);
     add_char_params.p_init_value      = &default_battery_level;
 
 add_char_params.char_props.read = 1;	add_char_params.read_access = p_LB_init->battery_level_rd_sec;
@@ -306,7 +304,7 @@ static ret_code_t LED_char_add(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init)
     ret_code_t             err_code;
     ble_add_char_params_t  add_char_params;
     ble_add_descr_params_t add_descr_params;
-    uint8_t                  default_LED;
+    uint8_t                default_LED;
     uint8_t                init_len;
     uint8_t                encoded_report_ref[BLE_SRV_ENCODED_REPORT_REF_LEN];
 
@@ -377,10 +375,10 @@ ret_code_t ble_LB_init(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init)
 	ble_uuid_t ble_uuid;
 
 	// Initialize service structure
-	p_LB->evt_handler               = p_LB_init->evt_handler;
-	p_LB->LED         = 0;
-	p_LB->Button         = 0;
-	p_LB->battery_level         = 0.0;
+	p_LB->evt_handler = p_LB_init->evt_handler;
+	p_LB->LED = 0;
+	p_LB->Button = 0;
+	p_LB->battery_level = 0;
 
 	// Add service
 	BLE_UUID_BLE_ASSIGN(ble_uuid, 0xAF00);
