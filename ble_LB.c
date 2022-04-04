@@ -235,14 +235,12 @@ uint32_t ble_LB_battery_level_update(ble_LB_t * p_LB, uint8_t battery_level)
 
     gatts_value.len     = sizeof(uint8_t);
     gatts_value.offset  = 0;
-    //TODO Check that datatype is consistent.
     gatts_value.p_value = &battery_level;
 
     // Update database.
     err_code = sd_ble_gatts_value_set(p_LB->conn_handle,p_LB->battery_level_handles.value_handle,&gatts_value);
     if (err_code == NRF_SUCCESS)
     {
-        // TODO Store value in the p_LB->battery_level (May use '=', maybe & or * depending on data).
         memcpy(&p_LB->battery_level, &battery_level, sizeof(uint8_t));
     }
     else
