@@ -358,16 +358,7 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
                                     veces++;
                                     //button_state.setText("EL BOTON SE HA PULSADO " + veces + " VECES");
                                     button_state.setText("Latitud: " + currentLocation.getLatitude() + ", Longitud: "+currentLocation.getLongitude());
-                                    Intent telegramIntent = new Intent(Intent.ACTION_SEND);
-                                    telegramIntent.setData(Uri.parse("http://telegram.me/@concha_leon_63"));
-                                    telegramIntent.putExtra(Intent.EXTRA_TEXT,currentLocation.getLatitude() + "," + currentLocation.getLongitude());
-                                    telegramIntent.setType("text/plain");
-                                    try{
-                                        startActivity(telegramIntent);
-                                    }
-                                    catch (android.content.ActivityNotFoundException ex){
-                                        Toast.makeText(getApplicationContext(),"Install Telegram",Toast.LENGTH_LONG).show();
-                                    }
+                                    //accion
                                 }
                             }
                         });
