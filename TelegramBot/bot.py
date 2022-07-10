@@ -13,7 +13,11 @@ def post():
     sendNotification(request.form['name'], request.form['locationLink'])
     return 'Received!'
 
-updater = Updater("5427320369:AAE4XKUAQoxoKz8gbfhZi4vE5S70-fF0KFg", use_context=True)
+with open('bot_token.txt') as f: #Crear un archivo bot_token.txt donde la primera línea tiene el token del bot.
+    lines = f.readlines()
+    token = lines[0]
+    
+updater = Updater(token, use_context=True)
 
 users = []
   
