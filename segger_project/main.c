@@ -80,11 +80,11 @@
 #include "nrf_drv_gpiote.h"
 
 #define SYSTEMOFF_LED                   BSP_BOARD_LED_0
-#define LEDBUTTON_LED                   BSP_BOARD_LED_1                         /**< LED to be toggled with the help of the LED Button Service. */
+#define PCB_LED                         26                                      /**< LED to be toggled with the help of the LED Button Service. */
 #define ADVERTISING_LED                 BSP_BOARD_LED_2                         /**< Is on when device is advertising. */
 #define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
 
-#define BUTTON                          BSP_BUTTON_0                            /**< Button that will trigger the notification event with the LED Button Service */
+#define BUTTON                          30                                      /**< Button that will trigger the notification event with the LED Button Service */
 #define BUTTON_DEL_BONDS                BSP_BUTTON_2                            /**< Button that will trigger the notification event with the LED Button Service */
 
 #define DEVICE_NAME                     "Nordic_JM"                             /**< Name of device. Will be included in the advertising data. */
@@ -135,6 +135,8 @@ static uint8_t m_auth_code[] = {'A', 'B', 'C', 'D'}; //0x41, 0x42, 0x43, 0x44
 static int m_auth_code_len = sizeof(m_auth_code);
 #endif
 
+bool advertising_active = false, device_connected = false;
+
 BLE_ADVERTISING_DEF(m_advertising);                                             //!< Advertising module instance.
 NRF_BLE_BMS_DEF(m_bms); 
 BLE_LB_DEF(m_LB);
@@ -174,6 +176,7 @@ static ble_gap_adv_data_t m_adv_data =
 
 //Declaración de las funciones
 int main(void);
+void dormir(void);
 static void buttons_init(void);
 static void button_event_handler(uint8_t, uint8_t);
 void leds_init(void);
@@ -187,7 +190,7 @@ void services_init(void);
 static void on_conn_params_evt(ble_conn_params_evt_t *);
 static void conn_params_error_handler(uint32_t);
 static void conn_params_init(void);
-static void advertising_start(bool erase_bonds);
+static void advertising_start(void);
 static void ble_evt_handler(ble_evt_t const *, void *);
 static void ble_stack_init(void);
 static void log_init(void);
@@ -243,7 +246,7 @@ int main(void){
     #ifdef SHOW_CONSOLE_OUTPUT
       NRF_LOG_INFO("BLE started.");
     #endif
-    advertising_start(false);
+    advertising_start();
 
     //Entra en el bucle principal
     for (;;){
@@ -270,10 +273,10 @@ static void gpiote_init()
     in_config_1.skip_gpio_setup = false; //Don't change this
 
     //VCE: Configuring 
-    err_code = nrf_drv_gpiote_in_init(15, &in_config_1, delete_bonds);
-    APP_ERROR_CHECK(err_code);
+    //err_code = nrf_drv_gpiote_in_init(15, &in_config_1, delete_bonds);
+    //APP_ERROR_CHECK(err_code);
 
-    nrf_drv_gpiote_in_event_enable(15, true);
+    //nrf_drv_gpiote_in_event_enable(15, true);
 }
 
 /**@brief Función que inicializa los servicios BLE usados en el programa
@@ -303,7 +306,7 @@ void services_init(void){
 	err_code = ble_dis_init(&dis_init);
 	APP_ERROR_CHECK(err_code);
        
-           // Initialize Bond Management Service
+        // Initialize Bond Management Service
         memset(&bms_init, 0, sizeof(bms_init));
         m_bms_bonds_to_delete        = ble_conn_state_user_flag_acquire();
         bms_init.evt_handler         = bms_evt_handler;
@@ -350,14 +353,15 @@ void services_init(void){
 /**@brief Función de inicialización de LEDS.
  */
 void leds_init(void){
-    bsp_board_init(BSP_INIT_LEDS);
+    //bsp_board_init(BSP_INIT_LEDS);
+    nrf_gpio_cfg_output(PCB_LED);
 }
 
 
 /**@brief Función para inicializar el manejador del botón
  */
 static void buttons_init(void){
-    bsp_board_init(BSP_INIT_BUTTONS);
+    //bsp_board_init(BSP_INIT_BUTTONS);
     ret_code_t err_code;
 
     //The array must be static because a pointer to it will be saved in the button handler module.
@@ -369,8 +373,8 @@ static void buttons_init(void){
     err_code = app_button_init(buttons, ARRAY_SIZE(buttons),
                                BUTTON_DETECTION_DELAY);
 
-    //Hacemos que el botón 2 despierte al dispositivo en System Off
-    nrf_gpio_cfg_sense_input(14, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+    //Hacemos que el botón despierte al dispositivo en System Off
+    nrf_gpio_cfg_sense_input(BUTTON, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
 
     APP_ERROR_CHECK(err_code);
 }
@@ -455,37 +459,33 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context){
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
+            device_connected = true;
+            advertising_active = false;
+            //bsp_board_led_off(ADVERTISING_LED);
             #ifdef SHOW_CONSOLE_OUTPUT
               NRF_LOG_INFO("Connected");
             #endif
-            bsp_board_led_off(ADVERTISING_LED);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
-            err_code = app_button_enable();
-            APP_ERROR_CHECK(err_code);
-            bsp_board_led_on(CONNECTED_LED);
             err_code = ble_LB_button_notify(&m_LB, 1);
-            if (err_code != NRF_SUCCESS && err_code != BLE_ERROR_INVALID_CONN_HANDLE && err_code != NRF_ERROR_INVALID_STATE && err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) {
-                APP_ERROR_CHECK(err_code);
-            }
-            nrf_delay_ms(100);
-            err_code = ble_LB_button_notify(&m_LB, 0);
             if (err_code != NRF_SUCCESS && err_code != BLE_ERROR_INVALID_CONN_HANDLE && err_code != NRF_ERROR_INVALID_STATE && err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) {
                 APP_ERROR_CHECK(err_code);
             }
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
+
+            //bsp_board_led_off(PCB_LED);
+            //bsp_board_led_on(ADVERTISING_LED);
             #ifdef SHOW_CONSOLE_OUTPUT
               NRF_LOG_INFO("Disconnected");
             #endif
-            bsp_board_led_off(CONNECTED_LED);
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
-            err_code = app_button_disable();
-            APP_ERROR_CHECK(err_code);
-            advertising_start(false);
-            nrf_power_system_off();
+            //err_code = app_button_disable();
+            //APP_ERROR_CHECK(err_code);
+            advertising_active = false;
+            device_connected = false;
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
@@ -730,21 +730,14 @@ static void conn_params_init(void){
 
 /**@brief Function for starting advertising.
  */
-static void advertising_start(bool erase_bonds)
+static void advertising_start(void)
 {
-    if (erase_bonds == true)
-    {
-        delete_bonds();
-        // Advertising is started by PM_EVT_PEERS_DELETE_SUCCEEDED event.
-    }
-    else
-    {
         uint32_t ret;
 
         ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
         APP_ERROR_CHECK(ret);
-        bsp_board_led_on(ADVERTISING_LED);
-    }
+        //bsp_board_led_on(ADVERTISING_LED);
+        advertising_active = true;
 }
 
 /**@brief Function for handling events from bond management service.
@@ -847,10 +840,10 @@ static void delete_all_bonds(nrf_ble_bms_t const * p_bms)
  */
 static void ble_stack_init(void){
     ret_code_t err_code;
-
+    
     err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);
-
+    
     // Configure the BLE stack using the default settings.
     // Fetch the start address of the application RAM.
     uint32_t ram_start = 0;
@@ -888,9 +881,16 @@ static void power_management_init(void){
  * @details If there is no pending log operation, then sleep until next the next event occurs.
  */
 static void idle_state_handle(void){
-    if (NRF_LOG_PROCESS() == false)
+    if (NRF_LOG_PROCESS() == false && advertising_active == false && device_connected == false)
     {
-        nrf_pwr_mgmt_run();
+        //nrf_pwr_mgmt_run();
+        dormir();
+    }
+    if(advertising_active){
+      //bsp_board_led_on(PCB_LED);
+      //nrf_delay_ms(100);
+      //bsp_board_led_off(PCB_LED);
+      //nrf_delay_ms(100);
     }
 }
 
@@ -934,15 +934,15 @@ static void peer_manager_init(void)
 static void pm_evt_handler(pm_evt_t const * p_evt)
 {
     pm_handler_on_pm_evt(p_evt);
-    pm_handler_disconnect_on_sec_failure(p_evt);
-    pm_handler_flash_clean(p_evt);
+    //pm_handler_disconnect_on_sec_failure(p_evt);
+    //pm_handler_flash_clean(p_evt);
+    //pm_handler_flash_clean_on_return();
 
     switch (p_evt->evt_id)
     {
-        case PM_EVT_PEERS_DELETE_SUCCEEDED:
-            advertising_start(false);
+        case PM_EVT_CONN_SEC_FAILED: //Si el bond ya existe, se elimina.
+            delete_bonds();
             break;
-
         default:
             break;
     }
@@ -969,10 +969,9 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
             APP_ERROR_CHECK(err_code);
             break;
-
         case BLE_ADV_EVT_IDLE:
-            NRF_LOG_INFO("DORMIR");
-            nrf_power_system_off();
+            //bsp_board_led_off(ADVERTISING_LED);
+            advertising_active = false;
             break;
         default:
             break;
@@ -986,6 +985,12 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 static void ble_advertising_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
+}
+
+void dormir(void){
+    NRF_LOG_INFO("DORMIR");
+    //bsp_board_led_off(PCB_LED);
+    nrf_power_system_off();
 }
 
 

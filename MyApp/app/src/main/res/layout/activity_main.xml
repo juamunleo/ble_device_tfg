@@ -9,10 +9,20 @@
     tools:context=".MainActivity">
 
     <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:text="Puerto del servidor:"
+        app:layout_constraintTop_toBottomOf="@+id/ipAddress"
+        tools:layout_editor_absoluteX="17dp"
+        tools:ignore="MissingConstraints" />
+
+    <TextView
         android:id="@+id/connection_status_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="DESCONECTADO"
+        android:text="No se está escuchando"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
@@ -25,7 +35,7 @@
         android:id="@+id/button_state_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="LEVANTADO"
+        android:text="Esperando a que se pulse el botón..."
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
@@ -33,7 +43,7 @@
         app:layout_constraintVertical_bias="0.077" />
 
     <Button
-        android:id="@+id/scan_button"
+        android:id="@+id/refresh_button"
         android:layout_width="160dp"
         android:layout_height="60dp"
         android:layout_marginStart="16dp"
@@ -44,13 +54,13 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/bond_button"
+        android:id="@+id/listen_button"
         android:layout_width="160dp"
         android:layout_height="60dp"
         android:layout_marginTop="104dp"
         android:layout_marginEnd="16dp"
-        android:onClick="bond"
-        android:text="Vincular"
+        android:onClick="startBondListener"
+        android:text="Escuchar"
         app:iconTint="@color/teal_200"
         app:iconTintMode="src_in"
         app:layout_constraintEnd_toEndOf="parent"
@@ -81,6 +91,44 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.067"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/ipAddress"
+        android:layout_width="378dp"
+        android:layout_height="43dp"
+        android:ems="10"
+        android:hint="192.168.1.2"
+        android:inputType="textPersonName"
+        android:text="192.168.100.6"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.515"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView"
+        app:layout_constraintVertical_bias="0.005" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Dirección del servidor:"
+        app:layout_constraintTop_toBottomOf="@+id/ble_devices_list_id"
+        tools:layout_editor_absoluteX="17dp" />
+
+    <EditText
+        android:id="@+id/portNumber"
+        android:layout_width="379dp"
+        android:layout_height="42dp"
+        android:layout_marginTop="4dp"
+        android:ems="10"
+        android:hint="5000"
+        android:inputType="number"
+        android:text="8080"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.531"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView2" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
