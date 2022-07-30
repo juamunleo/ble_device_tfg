@@ -28,9 +28,18 @@ def start(update: Update, context: CallbackContext):
     else:
         update.message.reply_text("Ya estabas en la lista de notificados.")
 
+def stop(update: Update, context: CallbackContext):
+    if(users.__contains__(update.effective_user)):
+        update.message.reply_text("Has sido eliminado de la lista de notificados.")
+        users.remove(update.effective_user)
+    else:
+        update.message.reply_text("No estabas en la lista de notificados.")
+
+
 def help(update: Update, context: CallbackContext):
     update.message.reply_text(""" Comandos :
     /start - Añadir tu usuario a la lista de notificados
+    /stop - Elimina tu usuario de la lista de notificados
     /help - Muestra este menú""")
 
 def sendNotification(name, locationLink):
@@ -38,6 +47,7 @@ def sendNotification(name, locationLink):
         user.send_message(name + " ha enviado una notificación desde esta ubicación: " + locationLink)
 
 updater.dispatcher.add_handler(CommandHandler('start', start))
+updater.dispatcher.add_handler(CommandHandler('stop', stop))
 updater.dispatcher.add_handler(CommandHandler('help', help))
 
 updater.start_polling()

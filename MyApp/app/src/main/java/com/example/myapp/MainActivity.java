@@ -45,8 +45,8 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
     private BluetoothGatt btgatt;
     private List<BluetoothDevice> bledevices;
     private int veces = 0;
-    final int LOCATION_REFRESH_TIME = 3000; // 15 seconds to update
-    final int LOCATION_REFRESH_DISTANCE = 0; // 500 meters to update
+    final int LOCATION_REFRESH_TIME = 3000; // 3 seconds to update
+    final int LOCATION_REFRESH_DISTANCE = 0; // 0 meters to update
     public static final UUID UUID_SERVICE = UUID.fromString("0000af00-0000-1000-8000-00805f9b34fb");
     public static final UUID UUID_CHARACTERISTIC_BUTTON = UUID.fromString("0000c001-0000-1000-8000-00805f9b34fb");
     public static final UUID UUID_DESCRIPTOR_BUTTON = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");

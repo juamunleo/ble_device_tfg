@@ -95,8 +95,7 @@
 
 #define APP_ADV_FAST_INTERVAL           0x0028                                  //!< Fast advertising interval (in units of 0.625 ms. This value corresponds to 25 ms.).
 #define APP_ADV_INTERVAL                64                                      /**< The advertising interval (in units of 0.625 ms; this value corresponds to 40 ms). */
-#define APP_ADV_DURATION                1000                                   /**< The advertising time-out (in units of seconds). When set to 0, we will never time out. */
-//#define APP_ADV_DURATION                0 //Temporal hasta que funcione la app
+#define APP_ADV_DURATION                1000                                    /**< The advertising time-out (in units of seconds). When set to 0, we will never time out. */
 
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.5 seconds). */
@@ -211,21 +210,11 @@ static void ble_advertising_error_handler(uint32_t nrf_error);
 static void gpiote_init(void);
 //Fin de las declaraciones
 
-/**@brief Función principal (el programa comienza aquí)
+/**@brief Función inicial (el programa comienza aquí)
  */
 int main(void){
-    
     reset_reason = NRF_POWER->RESETREAS; //Guardamos el estado del registro RESETREAS para saber el motivo del reset
     NRF_POWER->RESETREAS = 0xFFFFFFFF; //Reiniciamos el valor del registro RESETREAS
-
-    #ifdef SHOW_CONSOLE_OUTPUT
-      if(reset_reason != SYSTEM_FROM_OFF){
-        NRF_LOG_INFO("Reset desde boton");
-      }else if(reset_reason == SYSTEM_FROM_OFF){
-        NRF_LOG_INFO("Reset desde System OFF");
-      }
-    #endif
-
     //Inicialización de componentes
     log_init();
     buttons_init();
@@ -246,11 +235,22 @@ int main(void){
     #ifdef SHOW_CONSOLE_OUTPUT
       NRF_LOG_INFO("BLE started.");
     #endif
-    advertising_start();
+
+    if(reset_reason == SYSTEM_FROM_OFF){
+        #ifdef SHOW_CONSOLE_OUTPUT
+          NRF_LOG_INFO("Reset desde System OFF, iniciando advertising");
+        #endif
+        advertising_start();
+    }
+    #ifdef SHOW_CONSOLE_OUTPUT
+    else{
+        NRF_LOG_INFO("Reset no es desde System OFF, no se inicia advertising");
+    }
+    #endif
 
     //Entra en el bucle principal
     for (;;){
-        idle_state_handle(); //Se queda en IDLE hasta que ocurra un evento
+        idle_state_handle(); //Se realizarán acciones dependiendo del estado del dispositivo.
     }
 }
 
@@ -887,10 +887,10 @@ static void idle_state_handle(void){
         dormir();
     }
     if(advertising_active){
-      //bsp_board_led_on(PCB_LED);
-      //nrf_delay_ms(100);
-      //bsp_board_led_off(PCB_LED);
-      //nrf_delay_ms(100);
+      nrf_gpio_pin_set(PCB_LED);
+      nrf_delay_ms(100);
+      nrf_gpio_pin_set(PCB_LED);
+      nrf_delay_ms(100);
     }
 }
 
