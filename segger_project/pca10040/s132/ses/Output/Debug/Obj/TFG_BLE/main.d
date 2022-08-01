@@ -126,4 +126,6 @@ Output/Debug/Obj/TFG_BLE/main.o: \
  ../../../../../..//integration/nrfx/legacy/nrf_drv_gpiote.h \
  ../../../../../..//modules/nrfx/drivers/include/nrfx_gpiote.h \
  ../../../../../..//modules/nrfx/hal/nrf_gpiote.h \
- ../../../../../..//modules/nrfx/hal/nrf_gpio.h
+ ../../../../../..//modules/nrfx/hal/nrf_gpio.h \
+ ../../../../../..//modules/nrfx/drivers/include/nrfx_timer.h \
+ ../../../../../..//modules/nrfx/hal/nrf_timer.h

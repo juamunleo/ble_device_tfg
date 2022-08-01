@@ -46,8 +46,6 @@
 #include "ble_conn_state.h"
 #include "boards.h"
 
-#define LEDBUTTON_LED                   BSP_BOARD_LED_1
-
 #define NRF_LOG_MODULE_NAME ble_LB
 #if BLE_LB_CONFIG_LOG_ENABLED
 #define NRF_LOG_LEVEL       BLE_LB_CONFIG_LOG_LEVEL
@@ -81,38 +79,6 @@ static void on_disconnect(ble_LB_t * p_LB, ble_evt_t const * p_ble_evt)
     p_LB->conn_handle = BLE_CONN_HANDLE_INVALID;
 }
 
-/**@brief Function for handling the Write event.
- *
- * @param[in]   p_LB       LB Service structure.
- * @param[in]   p_ble_evt			  Event received from the BLE stack.
- */
-static void on_write(ble_LB_t * p_LB, ble_evt_t const * p_ble_evt)
-{
-    ble_gatts_evt_write_t const * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
-
-	/** TODO On write events. Whenever the BLE Chars are updated this function is triggered.
-	  * p_evt_write->handle: Contains the updated field info.
-      * p_ble_evt->evt.gatts_evt.params.write.data[0]: Contains the updated data.
-	*/
-
-	if(p_evt_write->handle == p_LB->LED_handles.value_handle)
-	{
-                if(p_ble_evt->evt.gatts_evt.params.write.data[0] > 0){
-                  bsp_board_led_on(LEDBUTTON_LED);
-                }else{
-                  bsp_board_led_off(LEDBUTTON_LED);
-                }
-	}
-	else if(p_evt_write->handle == p_LB->Button_handles.value_handle)
-	{
-
-	}
-	else if(p_evt_write->handle == p_LB->battery_level_handles.value_handle)
-	{
-
-	}
-}
-
 void ble_LB_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
     if ((p_context == NULL) || (p_ble_evt == NULL))
@@ -132,46 +98,10 @@ void ble_LB_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
             on_disconnect(p_LB, p_ble_evt);
             break;
 
-        case BLE_GATTS_EVT_WRITE:
-            on_write(p_LB, p_ble_evt);
-            break;
-
         default:
             // No implementation needed.
             break;
     }
-}
-
-
-uint32_t ble_LB_LED_update(ble_LB_t * p_LB, uint8_t LED)
-{
-    if (p_LB == NULL)
-    {
-        return NRF_ERROR_NULL;
-    }
-
-    uint32_t err_code = NRF_SUCCESS;
-    ble_gatts_value_t gatts_value;
-
-    // Initialize value struct.
-    memset(&gatts_value, 0, sizeof(gatts_value));
-
-    gatts_value.len     = sizeof(uint8_t);
-    gatts_value.offset  = 0;
-    gatts_value.p_value = &LED;
-
-    // Update database.
-    err_code = sd_ble_gatts_value_set(p_LB->conn_handle,p_LB->LED_handles.value_handle,&gatts_value);
-    if (err_code == NRF_SUCCESS)
-    {
-        memcpy(&p_LB->LED, &LED, sizeof(uint8_t));
-    }
-    else
-    {
-        return err_code;
-    }
-
-    return err_code;
 }
 
 
@@ -290,42 +220,6 @@ add_char_params.char_props.write = 1;	add_char_params.cccd_write_access = p_LB_i
 }
 
 
-/**@brief Function for adding the LB LED characteristic.
- *
- * @param[in]   p_LB        LB Service structure.
- * @param[in]   p_LB_init   Information needed to initialize the service.
- *
- * @return      NRF_SUCCESS on success, otherwise an error code.
- */
-static ret_code_t LED_char_add(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init)
-{
-    ret_code_t             err_code;
-    ble_add_char_params_t  add_char_params;
-    ble_add_descr_params_t add_descr_params;
-    uint8_t                default_LED;
-    uint8_t                init_len;
-    uint8_t                encoded_report_ref[BLE_SRV_ENCODED_REPORT_REF_LEN];
-
-    // Add LED characteristic
-    default_LED = p_LB_init->default_LED;
-
-    memset(&add_char_params, 0, sizeof(add_char_params));
-    add_char_params.uuid              = BLE_UUID_LED;
-    add_char_params.max_len           = sizeof(uint8_t);
-    add_char_params.init_len          = sizeof(uint8_t);
-    add_char_params.p_init_value      = &default_LED;
-
-add_char_params.char_props.read = 1;	add_char_params.read_access = p_LB_init->LED_rd_sec;
-add_char_params.char_props.write = 1;	add_char_params.cccd_write_access = p_LB_init->LED_cccd_wr_sec;
-	add_char_params.write_access = p_LB_init->LED_wr_sec;
-    err_code = characteristic_add(p_LB->service_handle,&add_char_params,&(p_LB->LED_handles));
-    if (err_code != NRF_SUCCESS)
-    {
-        return err_code;
-    }
-    return NRF_SUCCESS;
-}
-
 /**@brief Function for adding the LB BUTTON characteristic.
  *
  * @param[in]   p_LB        LB Service structure.
@@ -374,7 +268,6 @@ ret_code_t ble_LB_init(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init)
 
 	// Initialize service structure
 	p_LB->evt_handler = p_LB_init->evt_handler;
-	p_LB->LED = 0;
 	p_LB->Button = 0;
 	p_LB->battery_level = 0;
 
@@ -384,7 +277,6 @@ ret_code_t ble_LB_init(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init)
 	err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, & ble_uuid, & p_LB->service_handle);
 	VERIFY_SUCCESS(err_code);
 
-	err_code = LED_char_add(p_LB, p_LB_init);
 	err_code = Button_char_add(p_LB, p_LB_init);
 	err_code = battery_level_char_add(p_LB, p_LB_init);
 	return err_code;

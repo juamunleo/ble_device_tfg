@@ -9,7 +9,6 @@
 #include "nrf_ble_gatt.h"
 
 /* Characteristics UUID Definitions. */
-#define BLE_UUID_LED		0xC000
 #define BLE_UUID_BUTTON		0xC001
 #define BLE_UUID_BATTERY_LEVEL		0xC002
 
@@ -50,12 +49,8 @@ typedef void (* ble_LB_evt_handler_t) (ble_LB_t * p_LB, ble_LB_evt_t * p_evt);
 typedef struct
 {
 	ble_LB_evt_handler_t  evt_handler;                    /**< Event handler to be called for handling events in the LB Service. */
-	bool 	 default_LED;
 	uint8_t 	 default_Button;
 	float 	 default_battery_level;
-	security_req_t 	 LED_rd_sec;
-	security_req_t 	 LED_cccd_wr_sec;
-	security_req_t 	 LED_wr_sec;
 	security_req_t 	 Button_rd_sec;
         security_req_t 	 Button_not_sec;
 	security_req_t 	 battery_level_rd_sec;
@@ -68,11 +63,9 @@ struct ble_LB_s
 {
 	ble_LB_evt_handler_t evt_handler;
 	uint16_t service_handle;
-	ble_gatts_char_handles_t LED_handles;
 	ble_gatts_char_handles_t Button_handles;
 	ble_gatts_char_handles_t battery_level_handles;
 	uint16_t conn_handle;
-	bool LED;
 	uint8_t Button;
 	float battery_level;
 };
@@ -100,6 +93,7 @@ ret_code_t ble_LB_init(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init);
  */
 void ble_LB_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context);
 uint32_t ble_LB_button_notify(ble_LB_t * p_LB, uint8_t button_state);
+uint32_t ble_LB_Button_update(ble_LB_t * p_LB, uint8_t Button);
 #ifdef __cplusplus
 }
 #endif

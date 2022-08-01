@@ -78,14 +78,11 @@
 #include "fds.h"
 #include "bsp_btn_ble.h"
 #include "nrf_drv_gpiote.h"
+#include "nrfx_timer.h"
 
-#define SYSTEMOFF_LED                   BSP_BOARD_LED_0
 #define PCB_LED                         26                                      /**< LED to be toggled with the help of the LED Button Service. */
-#define ADVERTISING_LED                 BSP_BOARD_LED_2                         /**< Is on when device is advertising. */
-#define CONNECTED_LED                   BSP_BOARD_LED_3                         /**< Is on when device has connected. */
 
 #define BUTTON                          30                                      /**< Button that will trigger the notification event with the LED Button Service */
-#define BUTTON_DEL_BONDS                BSP_BUTTON_2                            /**< Button that will trigger the notification event with the LED Button Service */
 
 #define DEVICE_NAME                     "Nordic_JM"                             /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "JM"
@@ -96,7 +93,6 @@
 #define APP_ADV_FAST_INTERVAL           0x0028                                  //!< Fast advertising interval (in units of 0.625 ms. This value corresponds to 25 ms.).
 #define APP_ADV_INTERVAL                64                                      /**< The advertising interval (in units of 0.625 ms; this value corresponds to 40 ms). */
 #define APP_ADV_DURATION                1000                                    /**< The advertising time-out (in units of seconds). When set to 0, we will never time out. */
-
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.5 seconds). */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (1 second). */
@@ -127,12 +123,7 @@
 
 #define SHOW_CONSOLE_OUTPUT //Activa la información del programa por la consola
 
-#define USE_AUTHORIZATION_CODE 1
-
-#ifdef USE_AUTHORIZATION_CODE
-static uint8_t m_auth_code[] = {'A', 'B', 'C', 'D'}; //0x41, 0x42, 0x43, 0x44
-static int m_auth_code_len = sizeof(m_auth_code);
-#endif
+const nrfx_timer_t ledTimer = NRFX_TIMER_INSTANCE(1);
 
 bool advertising_active = false, device_connected = false;
 
@@ -208,6 +199,8 @@ uint16_t qwr_evt_handler(nrf_ble_qwr_t * p_qwr, nrf_ble_qwr_evt_t * p_evt);
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt);
 static void ble_advertising_error_handler(uint32_t nrf_error);
 static void gpiote_init(void);
+static void ledTimer_callback(nrf_timer_event_t event_type, void* p_context);
+static void init_ledTimer(void);
 //Fin de las declaraciones
 
 /**@brief Función inicial (el programa comienza aquí)
@@ -220,6 +213,7 @@ int main(void){
     buttons_init();
     leds_init();
     timers_init();
+    init_ledTimer();
     power_management_init();
     ble_stack_init();
     gap_params_init();
@@ -330,10 +324,6 @@ void services_init(void){
 
 	memset( & LB_init, 0, sizeof(LB_init));
 	LB_init.evt_handler = NULL;
-	LB_init.default_LED = 0;
-	LB_init.LED_rd_sec = SEC_OPEN;
-	LB_init.LED_cccd_wr_sec = SEC_OPEN;
-	LB_init.LED_wr_sec = SEC_OPEN;
 
 	LB_init.default_Button = 0;
 	LB_init.Button_rd_sec = SEC_OPEN;
@@ -353,7 +343,6 @@ void services_init(void){
 /**@brief Función de inicialización de LEDS.
  */
 void leds_init(void){
-    //bsp_board_init(BSP_INIT_LEDS);
     nrf_gpio_cfg_output(PCB_LED);
 }
 
@@ -361,7 +350,6 @@ void leds_init(void){
 /**@brief Función para inicializar el manejador del botón
  */
 static void buttons_init(void){
-    //bsp_board_init(BSP_INIT_BUTTONS);
     ret_code_t err_code;
 
     //The array must be static because a pointer to it will be saved in the button handler module.
@@ -414,8 +402,9 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action){
 static void delete_bonds(void)
 {
     ret_code_t err_code;
-
-    NRF_LOG_INFO("Erase bonds!");
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("Erase bonds!");
+    #endif
 
     err_code = pm_peers_delete();
     APP_ERROR_CHECK(err_code);
@@ -428,7 +417,9 @@ static void delete_all_except_requesting_bond(nrf_ble_bms_t const * p_bms)
     ret_code_t err_code;
     uint16_t conn_handle;
 
-    NRF_LOG_INFO("Client requested that all bonds except current bond be deleted");
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("Client requested that all bonds except current bond be deleted");
+    #endif
 
     pm_peer_id_t peer_id = pm_next_peer_id_get(PM_PEER_ID_INVALID);
     while (peer_id != PM_PEER_ID_INVALID)
@@ -461,7 +452,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context){
         case BLE_GAP_EVT_CONNECTED:
             device_connected = true;
             advertising_active = false;
-            //bsp_board_led_off(ADVERTISING_LED);
             #ifdef SHOW_CONSOLE_OUTPUT
               NRF_LOG_INFO("Connected");
             #endif
@@ -475,15 +465,14 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context){
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
-
-            //bsp_board_led_off(PCB_LED);
-            //bsp_board_led_on(ADVERTISING_LED);
             #ifdef SHOW_CONSOLE_OUTPUT
               NRF_LOG_INFO("Disconnected");
             #endif
+            err_code = ble_LB_Button_update(&m_LB, 0);
+            if (err_code != NRF_SUCCESS && err_code != BLE_ERROR_INVALID_CONN_HANDLE && err_code != NRF_ERROR_INVALID_STATE && err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) {
+                APP_ERROR_CHECK(err_code);
+            }
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
-            //err_code = app_button_disable();
-            //APP_ERROR_CHECK(err_code);
             advertising_active = false;
             device_connected = false;
             break;
@@ -750,14 +739,16 @@ void bms_evt_handler(nrf_ble_bms_t * p_ess, nrf_ble_bms_evt_t * p_evt)
     switch (p_evt->evt_type)
     {
         case NRF_BLE_BMS_EVT_AUTH:
-            NRF_LOG_DEBUG("Authorization request.");
-#if USE_AUTHORIZATION_CODE
-            if ((p_evt->auth_code.len != m_auth_code_len) ||
-                (memcmp(m_auth_code, p_evt->auth_code.code, m_auth_code_len) != 0))
-            {
-                is_authorized = false;
-            }
-#endif
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_DEBUG("Authorization request.");
+            #endif
+            #if USE_AUTHORIZATION_CODE
+              if ((p_evt->auth_code.len != m_auth_code_len) ||
+                  (memcmp(m_auth_code, p_evt->auth_code.code, m_auth_code_len) != 0))
+              {
+                  is_authorized = false;
+              }
+            #endif
             err_code = nrf_ble_bms_auth_response(&m_bms, is_authorized);
             APP_ERROR_CHECK(err_code);
     }
@@ -780,7 +771,9 @@ static void bond_delete(uint16_t conn_handle, void * p_context)
     }
     else
     {
-        NRF_LOG_DEBUG("Attempting to delete bond.");
+        #ifdef SHOW_CONSOLE_OUTPUT
+          NRF_LOG_DEBUG("Attempting to delete bond.");
+        #endif
         err_code = pm_peer_id_get(conn_handle, &peer_id);
         APP_ERROR_CHECK(err_code);
         if (peer_id != PM_PEER_ID_INVALID)
@@ -806,7 +799,9 @@ static void delete_disconnected_bonds(void)
 */
 static void delete_requesting_bond(nrf_ble_bms_t const * p_bms)
 {
-    NRF_LOG_INFO("Client requested that bond to current device deleted");
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("Client requested that bond to current device deleted");
+    #endif
     ble_conn_state_user_flag_set(p_bms->conn_handle, m_bms_bonds_to_delete, true);
 }
 
@@ -817,9 +812,9 @@ static void delete_all_bonds(nrf_ble_bms_t const * p_bms)
 {
     ret_code_t err_code;
     uint16_t conn_handle;
-
-    NRF_LOG_INFO("Client requested that all bonds be deleted");
-
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("Client requested that all bonds be deleted");
+    #endif
     pm_peer_id_t peer_id = pm_next_peer_id_get(PM_PEER_ID_INVALID);
     while (peer_id != PM_PEER_ID_INVALID)
     {
@@ -883,14 +878,38 @@ static void power_management_init(void){
 static void idle_state_handle(void){
     if (NRF_LOG_PROCESS() == false && advertising_active == false && device_connected == false)
     {
-        //nrf_pwr_mgmt_run();
         dormir();
     }
     if(advertising_active){
+      if(!nrfx_timer_is_enabled(&ledTimer)){
+          nrfx_timer_enable(&ledTimer);
+      }
+    }
+    if(device_connected){
+      if(nrfx_timer_is_enabled(&ledTimer)){
+          nrfx_timer_disable(&ledTimer);
+      }
       nrf_gpio_pin_set(PCB_LED);
-      nrf_delay_ms(100);
-      nrf_gpio_pin_set(PCB_LED);
-      nrf_delay_ms(100);
+    }
+}
+
+/**@brief Función para inicializar el timer necesario para cambiar el estado del LED.
+ */
+static void init_ledTimer(void) {
+  nrfx_timer_config_t ledTimer_config = NRFX_TIMER_DEFAULT_CONFIG;
+  APP_ERROR_CHECK(nrfx_timer_init(&ledTimer, &ledTimer_config, ledTimer_callback));
+  //nrfx_timer_extended_compare(&ledTimer, NRF_TIMER_CC_CHANNEL0, nrfx_timer_ms_to_ticks(&ledTimer, 500), NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
+  nrfx_timer_compare(&ledTimer, NRF_TIMER_CC_CHANNEL0, nrfx_timer_ms_to_ticks(&ledTimer, 500), true);
+}
+
+static void ledTimer_callback(nrf_timer_event_t event_type, void* p_context){
+    switch(event_type){
+        case NRF_TIMER_EVENT_COMPARE0:
+            NRF_LOG_INFO("toggle led");
+            nrf_gpio_pin_toggle(PCB_LED);
+            break;
+        default:
+            break;
     }
 }
 
@@ -965,12 +984,13 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
-            NRF_LOG_INFO("Fast adverstising.");
+            #ifdef SHOW_CONSOLE_OUTPUT
+              NRF_LOG_INFO("Fast adverstising.");
+            #endif
             err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
             APP_ERROR_CHECK(err_code);
             break;
         case BLE_ADV_EVT_IDLE:
-            //bsp_board_led_off(ADVERTISING_LED);
             advertising_active = false;
             break;
         default:
@@ -988,12 +1008,15 @@ static void ble_advertising_error_handler(uint32_t nrf_error)
 }
 
 void dormir(void){
-    NRF_LOG_INFO("DORMIR");
-    //bsp_board_led_off(PCB_LED);
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("DORMIR");
+    #endif
+    if(nrfx_timer_is_enabled(&ledTimer)){
+        nrfx_timer_disable(&ledTimer);
+    }
+    nrf_gpio_pin_clear(PCB_LED);
     nrf_power_system_off();
 }
-
-
 /**
  * @}
  */

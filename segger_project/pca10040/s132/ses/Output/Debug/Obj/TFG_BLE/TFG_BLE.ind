@@ -42,6 +42,7 @@
 "Output/Debug/Obj/TFG_BLE/nrfx_prs.o"
 "Output/Debug/Obj/TFG_BLE/nrfx_uart.o"
 "Output/Debug/Obj/TFG_BLE/nrfx_uarte.o"
+"Output/Debug/Obj/TFG_BLE/nrfx_timer.o"
 "Output/Debug/Obj/TFG_BLE/main.o"
 "Output/Debug/Obj/TFG_BLE/SEGGER_RTT.o"
 "Output/Debug/Obj/TFG_BLE/SEGGER_RTT_Syscalls_SES.o"
