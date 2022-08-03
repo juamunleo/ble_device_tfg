@@ -1,0 +1,6 @@
+<BLE>
+    <SERVICE name="LB" uuid="0xAF00">
+        <CHAR name="button"  uuid="0xC001" type="uint8_t" initial="0x00" actions="r"></CHAR>
+        <CHAR name="battery_level"  uuid="0xC002" type="uint8_t" initial="0x00" actions="r"></CHAR>
+    </SERVICE>
+</BLE>
