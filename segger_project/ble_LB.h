@@ -94,6 +94,7 @@ ret_code_t ble_LB_init(ble_LB_t * p_LB, const ble_LB_init_t * p_LB_init);
 void ble_LB_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context);
 uint32_t ble_LB_button_notify(ble_LB_t * p_LB, uint8_t button_state);
 uint32_t ble_LB_Button_update(ble_LB_t * p_LB, uint8_t Button);
+uint32_t ble_LB_battery_level_update(ble_LB_t * p_LB, uint8_t battery_level);
 #ifdef __cplusplus
 }
 #endif

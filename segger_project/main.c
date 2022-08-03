@@ -79,6 +79,8 @@
 #include "bsp_btn_ble.h"
 #include "nrf_drv_gpiote.h"
 #include "nrfx_timer.h"
+//#include "nrf_drv_saadc.h"
+#include "nrfx_saadc.h"
 
 #define PCB_LED                         26                                      /**< LED to be toggled with the help of the LED Button Service. */
 
@@ -125,7 +127,7 @@
 
 const nrfx_timer_t ledTimer = NRFX_TIMER_INSTANCE(1);
 
-bool advertising_active = false, device_connected = false;
+bool advertising_active = false, device_connected = false, button_enabled = false;
 
 BLE_ADVERTISING_DEF(m_advertising);                                             //!< Advertising module instance.
 NRF_BLE_BMS_DEF(m_bms); 
@@ -140,6 +142,7 @@ static uint8_t m_enc_advdata[BLE_GAP_ADV_SET_DATA_SIZE_MAX];                    
 static uint8_t m_enc_scan_response_data[BLE_GAP_ADV_SET_DATA_SIZE_MAX];         /**< Buffer for storing an encoded scan data. */
 static ble_conn_state_user_flag_id_t m_bms_bonds_to_delete;                     //!< Flags used to identify bonds that should be deleted.
 
+uint8_t battery_percent;
 uint32_t reset_reason;
 
 static ble_uuid_t m_adv_uuids[] = /** < Universally unique service identifiers. */
@@ -201,13 +204,19 @@ static void ble_advertising_error_handler(uint32_t nrf_error);
 static void gpiote_init(void);
 static void ledTimer_callback(nrf_timer_event_t event_type, void* p_context);
 static void init_ledTimer(void);
+static void saadc_init(void);
+static void saadc_callback(nrfx_saadc_evt_t const * p_event);
+
 //Fin de las declaraciones
 
 /**@brief Función inicial (el programa comienza aquí)
  */
 int main(void){
+    nrf_saadc_value_t adc_read;
+    uint32_t battery;
     reset_reason = NRF_POWER->RESETREAS; //Guardamos el estado del registro RESETREAS para saber el motivo del reset
     NRF_POWER->RESETREAS = 0xFFFFFFFF; //Reiniciamos el valor del registro RESETREAS
+
     //Inicialización de componentes
     log_init();
     buttons_init();
@@ -223,7 +232,17 @@ int main(void){
     conn_params_init();
     peer_manager_init();
     gpiote_init();
+    saadc_init();
     //Fin de inicialización
+
+    //Lectura de batería
+    nrfx_saadc_sample_convert(0, &adc_read);
+    battery = (uint32_t) (adc_read*225)>>6;
+    battery_percent = battery_level_in_percent((uint16_t) battery);
+
+    #ifdef SHOW_CONSOLE_OUTPUT
+      NRF_LOG_INFO("Batería: %d%%", battery_percent);
+    #endif
 
     //Una vez finalizada la inicialización de BLE, se inicia el advertising
     #ifdef SHOW_CONSOLE_OUTPUT
@@ -232,16 +251,17 @@ int main(void){
 
     if(reset_reason == SYSTEM_FROM_OFF){
         #ifdef SHOW_CONSOLE_OUTPUT
-          NRF_LOG_INFO("Reset desde System OFF, iniciando advertising");
+          NRF_LOG_INFO("Reset desde System OFF, se mandará botón pulsado");
         #endif
-        advertising_start();
+        button_enabled = true;
     }
     #ifdef SHOW_CONSOLE_OUTPUT
     else{
-        NRF_LOG_INFO("Reset no es desde System OFF, no se inicia advertising");
+        NRF_LOG_INFO("Reset no es desde System OFF, no se mandará botón pulsado");
     }
     #endif
 
+    advertising_start();
     //Entra en el bucle principal
     for (;;){
         idle_state_handle(); //Se realizarán acciones dependiendo del estado del dispositivo.
@@ -458,7 +478,13 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context){
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
-            err_code = ble_LB_button_notify(&m_LB, 1);
+            if(button_enabled){
+                err_code = ble_LB_button_notify(&m_LB, 1);
+                if (err_code != NRF_SUCCESS && err_code != BLE_ERROR_INVALID_CONN_HANDLE && err_code != NRF_ERROR_INVALID_STATE && err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) {
+                    APP_ERROR_CHECK(err_code);
+                }
+            }
+            err_code = ble_LB_battery_level_update(&m_LB, battery_percent);
             if (err_code != NRF_SUCCESS && err_code != BLE_ERROR_INVALID_CONN_HANDLE && err_code != NRF_ERROR_INVALID_STATE && err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) {
                 APP_ERROR_CHECK(err_code);
             }
@@ -898,14 +924,12 @@ static void idle_state_handle(void){
 static void init_ledTimer(void) {
   nrfx_timer_config_t ledTimer_config = NRFX_TIMER_DEFAULT_CONFIG;
   APP_ERROR_CHECK(nrfx_timer_init(&ledTimer, &ledTimer_config, ledTimer_callback));
-  //nrfx_timer_extended_compare(&ledTimer, NRF_TIMER_CC_CHANNEL0, nrfx_timer_ms_to_ticks(&ledTimer, 500), NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, true);
   nrfx_timer_compare(&ledTimer, NRF_TIMER_CC_CHANNEL0, nrfx_timer_ms_to_ticks(&ledTimer, 500), true);
 }
 
 static void ledTimer_callback(nrf_timer_event_t event_type, void* p_context){
     switch(event_type){
         case NRF_TIMER_EVENT_COMPARE0:
-            NRF_LOG_INFO("toggle led");
             nrf_gpio_pin_toggle(PCB_LED);
             break;
         default:
@@ -1007,6 +1031,26 @@ static void ble_advertising_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
+static void saadc_init(void)
+{
+   
+    ret_code_t err_code;
+
+    nrfx_saadc_config_t saadc_config = NRFX_SAADC_DEFAULT_CONFIG;
+    nrf_saadc_channel_config_t channel_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_VDD);
+
+    err_code = nrfx_saadc_init(&saadc_config, saadc_callback);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrfx_saadc_channel_init(0, &channel_config);
+    APP_ERROR_CHECK(err_code);
+}
+
+static void saadc_callback(nrfx_saadc_evt_t const * p_event){
+  //No se hace nada en el callback
+}
+
+
 void dormir(void){
     #ifdef SHOW_CONSOLE_OUTPUT
       NRF_LOG_INFO("DORMIR");
@@ -1017,6 +1061,8 @@ void dormir(void){
     nrf_gpio_pin_clear(PCB_LED);
     nrf_power_system_off();
 }
+
+
 /**
  * @}
  */

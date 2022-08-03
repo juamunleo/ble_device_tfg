@@ -89,6 +89,7 @@
       <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_uart.c" />
       <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_uarte.c" />
       <file file_name="../../../../../../modules/nrfx/drivers/src/nrfx_timer.c" />
+      <file file_name="../../../../../../modules/nrfx/drivers/src/nrfx_saadc.c" />
     </folder>
     <folder Name="Application">
       <file file_name="../config/sdk_config.h" />

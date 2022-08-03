@@ -59,8 +59,8 @@ public class PostBuilder {
             URL url = new URL("http://" + this.ip + ":" + this.port + "/");
             URLConnection urlConnection = url.openConnection();
             urlConnection.setDoOutput(true);
-            urlConnection.setConnectTimeout(5000);
-            urlConnection.setReadTimeout(5000);
+            urlConnection.setConnectTimeout(15000);
+            urlConnection.setReadTimeout(15000);
             OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
 
             out.write(this.getPostString());

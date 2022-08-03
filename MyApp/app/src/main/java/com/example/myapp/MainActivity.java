@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -49,7 +50,7 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
     final int LOCATION_REFRESH_DISTANCE = 0; // 0 meters to update
     public static final UUID UUID_SERVICE = UUID.fromString("0000af00-0000-1000-8000-00805f9b34fb");
     public static final UUID UUID_CHARACTERISTIC_BUTTON = UUID.fromString("0000c001-0000-1000-8000-00805f9b34fb");
-    public static final UUID UUID_DESCRIPTOR_BUTTON = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    public static final UUID UUID_CHARACTERISTIC_BATTERY = UUID.fromString("0000c002-0000-1000-8000-00805f9b34fb");
     public TextView button_state;
     public Spinner ble_devices_list;
     public TextView listen_button;
@@ -57,6 +58,7 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
     public TextView refresh_button;
     public TextView ipAddress;
     public TextView portNumber;
+    public TextView battery_percent;
     BluetoothGatt mBluetoothGatt;
     BluetoothLeScanner lescanner;
     ArrayAdapter<String> adapter;
@@ -65,6 +67,8 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
     protected LocationListener locationListener;
     private Location currentLocation;
     boolean listening = false;
+    boolean buttonRead = false;
+    List<BluetoothGattCharacteristic> charQueue = new ArrayList<>();
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
@@ -78,6 +82,7 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
         refresh_button = findViewById(R.id.refresh_button);
         ipAddress = findViewById(R.id.ipAddress);
         portNumber = findViewById(R.id.portNumber);
+        battery_percent = findViewById(R.id.battery_percent);
         MainActivity.context = getApplicationContext();
         locationManager = (LocationManager) getSystemService(context.LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -109,8 +114,6 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
     public void initCallback() {
         try {
             mGattCallback = new BluetoothGattCallback() {
-                private final String TAG = "mGattCallback";
-
                 @Override
                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                     super.onConnectionStateChange(gatt, status, newState);
@@ -120,113 +123,98 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
                         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                             return;
                         }
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                                    return;
-                                }
-                                btgatt.disconnect();
-                                try {
-                                    button_state.setText("Enviando latitud: " + currentLocation.getLatitude() + " y Longitud: " + currentLocation.getLongitude());
-                                    Thread t1 = new Thread(new Runnable() {
-                                        public void run() {
-                                            PostBuilder postBuilder = new PostBuilder(ipAddress.getText().toString(), Integer.parseInt(portNumber.getText().toString()));
-                                            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                                                return;
-                                            }
-                                            postBuilder.setName(bluetoothAdapter.getName());
-                                            postBuilder.setLocationLink("https://maps.google.com/?q=" + currentLocation.getLatitude() + "," + currentLocation.getLongitude());
-                                            postBuilder.sendRequest();
-                                        }
-                                    });
-                                    t1.start();
-                                }catch(Exception e){
-                                    Log.i(TAG, "Error al calcular la ubicación");
-                                }
-
-                                Thread t2 = new Thread(new Runnable() {
-                                    public void run() {
-                                        try {
-
-                                            Thread.sleep(5000);
-                                        } catch (InterruptedException e) {
-                                            e.printStackTrace();
-                                        }
-                                        runOnUiThread(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                button_state.setText("Esperando a que se pulse el botón...");
-                                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                                                    return;
-                                                }
-                                                btgatt.connect();
-                                            }
-                                        });
-
-                                    }
-                                });
-                                t2.start();
-                            }
-                        });
+                        gatt.discoverServices();
                     }
                 }
 
+                @SuppressLint("NewApi")
                 @Override
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                    buttonRead = false;
                     //gatt.getServices().stream().forEach(x->Log.i(TAG, "Service discovered:"+x.getUuid()));
                     if (status == gatt.GATT_SUCCESS) {
                         BluetoothGattService service = gatt.getService(UUID_SERVICE);
                         if (service != null) {
                             Log.i(TAG, "Service connected");
-                            BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_BUTTON);
-                            if (characteristic != null) {
-                                Log.i(TAG, "Characteristic connected");
+                            BluetoothGattCharacteristic buttonChar = service.getCharacteristic(UUID_CHARACTERISTIC_BUTTON);
+                            if (buttonChar != null) {
+                                Log.i(TAG, "Button characteristic connected");
                                 if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                                     return;
                                 }
-                                gatt.setCharacteristicNotification(characteristic, true);
-                                BluetoothGattDescriptor desc = characteristic.getDescriptor(UUID_DESCRIPTOR_BUTTON);
-                                desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                                gatt.writeDescriptor(desc);
-
+                                gatt.readCharacteristic(buttonChar);
+                                charQueue.add(buttonChar);
                             }
+                            BluetoothGattCharacteristic batteryChar = service.getCharacteristic(UUID_CHARACTERISTIC_BATTERY);
+                            if (batteryChar != null) {
+                                Log.i(TAG, "Battery characteristic connected");
+                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                    return;
+                                }
+                                charQueue.add(batteryChar);
+                            }
+                            readCharacteristicFromQueue(gatt);
                         }
                     }
                 }
 
+                @SuppressLint("NewApi")
+                public void readCharacteristicFromQueue(BluetoothGatt gatt) {
+                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        return;
+                    }
+                    gatt.readCharacteristic(charQueue.stream().findFirst().get());
+                }
+
+                @SuppressLint("NewApi")
                 @Override
-                public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+                public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
                     if (characteristic.getUuid().equals(UUID_CHARACTERISTIC_BUTTON)) {
+                        buttonRead = true;
+                        Log.i(TAG, "Característica botón leída.");
                         if (characteristic.getValue()[0] == 1) {
-                            Log.i(TAG, "Botón se ha pulsado");
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    button_state.setText("PULSADO");
-                                }
-                            });
-
-                        } else if (characteristic.getValue()[0] == 0) {
-                            Log.i(TAG, "Botón se ha levantado");
-                            runOnUiThread(new Runnable() {
-
-                                @Override
-                                public void run() {
-                                    button_state.setText("LEVANTADO");
-                                }
-                            });
+                            botonPulsado();
                         }
                     }
-                }
+                    if (characteristic.getUuid().equals(UUID_CHARACTERISTIC_BATTERY)) {
+                        Log.i(TAG, "Característica batería leída.");
+                        if (characteristic.getValue()[0] > 0) {
+                            battery_percent.setText("Batería: " + characteristic.getValue()[0] + "%");
+                        }
+                    }
 
+                    charQueue.remove(charQueue.stream().findFirst().get());
+
+                    if (charQueue.size() > 0) {
+                        readCharacteristicFromQueue(gatt);
+                    } else {
+                        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                            return;
+                        }
+                        gatt.disconnect();
+                        Thread t2 = new Thread(new Runnable() {
+                            public void run() {
+                                try {
+                                    Thread.sleep(5000);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        button_state.setText("Esperando a que se pulse el botón...");
+                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                    return;
+                                }
+                                btgatt.connect();
+                                    }
+                                });
+                            }
+                        });
+                        t2.start();
+                    }
+                }
             };
-            /*
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                return;
-            }
-            mBluetoothGatt = bluetoothDevice.connectGatt(this, true, mGattCallback);
-            */
             if (mBluetoothGatt == null) {
                 Log.w(TAG, "Unable to create GATT client");
                 return;
@@ -236,6 +224,40 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
         } catch (Exception e) {
             Log.w(TAG, e.toString());
         }
+    }
+
+    public void botonPulsado(){
+        Log.i(TAG, "Botón se ha pulsado");
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                try {
+                    button_state.setText("Enviando Latitud: " + currentLocation.getLatitude() + "\n y Longitud: " + currentLocation.getLongitude());
+                    Thread t1 = new Thread(new Runnable() {
+                        public void run() {
+                            PostBuilder postBuilder = new PostBuilder(ipAddress.getText().toString(), Integer.parseInt(portNumber.getText().toString()));
+                            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                return;
+                            }
+                            postBuilder.setName(bluetoothAdapter.getName());
+                            postBuilder.setLocationLink("https://maps.google.com/?q=" + currentLocation.getLatitude() + "," + currentLocation.getLongitude());
+                            postBuilder.sendRequest();
+                        }
+                    });
+                    t1.start();
+                }catch(Exception e){
+                    Log.i(TAG, "Error al calcular la ubicación");
+                }
+
+
+            }
+        });
     }
 
     public void setEvents() {
@@ -254,9 +276,6 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
         });
     }
 
-    /*
-
-     */
     public void refreshList(View view) {
         adapter = new ArrayAdapter<String>(context, android.R.layout.simple_spinner_dropdown_item);
         bledevices.clear();
@@ -286,7 +305,6 @@ public class MainActivity<bluetoothAdapter> extends AppCompatActivity {
             ipAddress.setEnabled(false);
             portNumber.setEnabled(false);
             listen_button.setText("Parar");
-
             listening = true;
         }else{
             btgatt.disconnect();

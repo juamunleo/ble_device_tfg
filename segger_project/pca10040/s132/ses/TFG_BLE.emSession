@@ -29,9 +29,8 @@
   <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;Board Definition"/>
   <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;Board Support"/>
   <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;None"/>
-  <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;nRF_BLE"/>
   <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;nRF_BLE_Services"/>
-  <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;nRF_SoftDevice"/>
+  <ProjectSessionItem path="TFG_BLE_Solution;TFG_BLE;nRF_Drivers"/>
  </Project>
  <Register1>
   <RegisterWindow visibleNodes="CPU - Current Context/r0;CPU - Current Context/r1;CPU - Current Context/r2;CPU - Current Context/r3;CPU - Current Context/r4;CPU - Current Context/r5;CPU - Current Context/r6;CPU - Current Context/r7;CPU - Current Context/r8;CPU - Current Context/r9;CPU - Current Context/r10;CPU - Current Context/r11;CPU - Current Context/r12;CPU - Current Context/sp(r13);CPU - Current Context/lr(r14);CPU - Current Context/pc(r15);CPU - Current Context/apsr;CPU/r0;CPU/r1;CPU/r2;CPU/r3;CPU/r4;CPU/r5;CPU/r6;CPU/r7;CPU/r8;CPU/r9;CPU/r10;CPU/r11;CPU/r12;CPU/sp(r13);CPU/lr(r14);CPU/pc(r15);CPU/xpsr;CPU/MSP;CPU/PSP;CPU/PRIMASK;CPU/BASEPRI;CPU/FAULTMASK;CPU/CONTROL;CPU/internal" binaryNodes="" asciiNodes="" openNodes="CPU - Current Context" name="ble_app_blinky_pca10040_s132" decimalNodes="" octalNodes="" unsignedNodes=""/>
@@ -61,7 +60,7 @@
    <Watchpoint expression="p_LB" name="p_LB" radix="-1" linenumber="251" filename="../../../../../components/ble/ble_services/ble_lbs/ble_lbs.c"/>
    <Watchpoint expression="&amp;gatts_value.p_value" name="&amp;gatts_value.p_value" radix="-1" linenumber="245" filename="../../../../../components/ble/ble_services/ble_lbs/ble_lbs.c"/>
    <Watchpoint expression="&amp;Button" name="&amp;Button" radix="-1" linenumber="245" filename="../../../../../components/ble/ble_services/ble_lbs/ble_lbs.c"/>
-   <Watchpoint expression="enabled" name="enabled" radix="-1" linenumber="844" filename="../../../main.c"/>
+   <Watchpoint expression="enabled" name="enabled" radix="-1" linenumber="865" filename="../../../main.c"/>
   </Watches>
  </Watch1>
  <Watch2>
@@ -74,8 +73,12 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="39" y="215" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="224" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="0" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../ble_LB.c" selected="0" top="13" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="18" y="402" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="493" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="133" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/projects/TFG_BLE/segger_project/main.c" useBinaryEdit="0" left="0" path="../../../../../../integration/nrfx/legacy/nrf_drv_saadc.h" selected="0" top="60" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="24" y="41" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../../../../../../modules/nrfx/drivers/src/nrfx_saadc.c" selected="0" top="33" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="37" y="763" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/modules/nrfx/drivers/src/nrfx_saadc.c" useBinaryEdit="0" left="0" path="../../../../../../integration/nrfx/legacy/apply_old_config.h" selected="0" top="735" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="5345" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../config/sdk_config.h" selected="0" top="5318" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="1259" useTextEdit="1" openedFrom="C:/Nordic_sdk/nRF5_SDK_17.1.0_ddde560/projects/TFG_BLE/segger_project/main.c" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/util/app_util.h" selected="0" top="1234" codecName="Default"/>
  </Files>
  <ARMCrossStudioWindow activeProject="TFG_BLE" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>
